@@ -17,6 +17,7 @@
 #include <sstream>
 #include <ctime>
 #include <fstream>
+#include <csignal>
 #include "Socket.hpp"
 #include "Message.hpp"
 #include "Request.hpp"

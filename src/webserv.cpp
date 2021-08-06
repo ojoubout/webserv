@@ -92,10 +92,12 @@ int main() {
 				bool close = false;
 				Response * response;
 				connection.setFD(fds[i].fd);
+				connection.setState(NonBlockingSocket);
 
 				if (fds[i].revents & POLLIN) {
-
+					std::cerr << "B" << std::endl;
 					std::string message = connection.receive();
+					std::cerr << "A" << std::endl;
 
 					Request request(message);
 					try {

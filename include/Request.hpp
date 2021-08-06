@@ -26,4 +26,7 @@ public:
 
 };
 
+Method getMethodFromName(const std::string & method);
+
+
 #endif

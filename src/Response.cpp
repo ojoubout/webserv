@@ -33,7 +33,7 @@ void Response::handleGetRequest(Request const & req)
 	std::string filename = req.getRequestTarget().substr(1);
 	std::ostringstream oss("");
 
-	file.open(filename);
+	file.open(filename.c_str());
 
 	stat (filename.c_str(), &this->fileStat);
 	Utils::fileStat(filename, fileStat);
@@ -68,7 +68,7 @@ std::string Response::HeadertoString() const
 	std::ostringstream response("");
 
 	response << "HTTP/1.1 " << this->status << " " << reasonPhrase(this->status) << CRLF;
-	for (std::unordered_map<std::string, std::string>::const_iterator it = _headers.cbegin(); it != _headers.end(); ++it)
+	for (std::map<std::string, std::string>::const_iterator it = _headers.begin(); it != _headers.end(); ++it)
 	{
 		response << it->first << ": " << it->second << CRLF;
 	}

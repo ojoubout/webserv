@@ -32,6 +32,16 @@ namespace Utils {
 		return static_cast<unsigned char>(std::tolower(c)); 
 	}
 
+	template<class InputIt, class OutputIt, class UnaryOperation>
+	OutputIt transform(InputIt first1, InputIt last1, OutputIt d_first, 
+					UnaryOperation unary_op)
+	{
+		while (first1 != last1) {
+			*d_first++ = unary_op(*first1++);
+		}
+		return d_first;
+	}
+
 	/**
 	* FUNCTION: getFileExtension 
 	* USE: Returns the file extension from a given file path
@@ -42,7 +52,7 @@ namespace Utils {
 		std::string fileName = getFileName(path);
 		size_t extStart = fileName.find_last_of('.');
 		std::string ext = extStart == std::string::npos ? "" : fileName.substr(extStart + 1);
-		std::transform(ext.begin(), ext.end(), ext.begin(), op_custom);
+		transform(ext.begin(), ext.end(), ext.begin(), op_custom);
 		return ext;
 	}
 	inline bool file_exists (const std::string& name) {
