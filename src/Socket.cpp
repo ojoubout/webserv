@@ -51,7 +51,10 @@ void Socket::setAddress(sa_family_t family, in_addr_t s_addr, in_port_t sin_port
 
 void Socket::bind() const {
 	if (::bind(_fd, (struct sockaddr *)&_address, sizeof(_address)) == -1) {
-        error("Failed to bind to port");
+        std::stringstream ss;
+
+        ss << "Failed to bind to " << inet_ntoa(_address.sin_addr) << ":" << ntohs(_address.sin_port);
+        error(ss.str());
 	}
 }
 
@@ -126,4 +129,12 @@ void Socket::error(std::string message) const {
 	std::cerr << message << ". " << std::strerror(errno)  << ". " << errno << std::endl;
 	close();
 	return exit(EXIT_FAILURE);
+}
+
+std::string Socket::getHost() const {
+    return inet_ntoa(_address.sin_addr);
+}
+
+int Socket::getPort() const {
+    return ntohs(_address.sin_port);
 }

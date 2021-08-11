@@ -1,10 +1,22 @@
-#pragma once
+// #pragma once
+
+#ifndef CONFIG_HPP
+# define CONFIG_HPP
 
 #include <string>
-#include <vector>
 #include <map>
-#include <unistd.h>
+#include <vector>
 #include "Request.hpp"
+#include "StatusCode.hpp"
+#include <iostream>
+#include <fstream>
+#include <cctype>
+#include <set>
+#include <cstdlib>
+#include <stdexcept>
+#include <unistd.h>
+#include <algorithm>
+#include "Socket.hpp"
 
 class Config {
 public:
@@ -27,4 +39,8 @@ public:
     std::vector<std::string> index;
     std::string cgi;
     std::string upload;
+
+    Socket *socket;
 };
+
+#endif

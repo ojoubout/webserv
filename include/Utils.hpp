@@ -1,8 +1,18 @@
 #ifndef UTILS_HPP
 # define UTILS_HPP
-# include <iostream>
+# include "webserv.hpp"
 
 namespace Utils {
+
+	static const std::string wday_name[7] = {
+		"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"
+	};
+
+	static const std::string mon_name[12] = {
+		"Jan", "Feb", "Mar", "Apr", "May", "Jun",
+		"Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+	};
+
 	/**
 	* FUNCTION: getFilePath 
 	* USE: Returns the path from a given file path
@@ -52,7 +62,8 @@ namespace Utils {
 		std::string fileName = getFileName(path);
 		size_t extStart = fileName.find_last_of('.');
 		std::string ext = extStart == std::string::npos ? "" : fileName.substr(extStart + 1);
-		transform(ext.begin(), ext.end(), ext.begin(), op_custom);
+		// Uti transform(ext.begin(), ext.end(), ext.begin(), op_custom);
+		
 		return ext;
 	}
 	inline bool file_exists (const std::string& name) {
@@ -70,10 +81,11 @@ namespace Utils {
 	{
 		// struct stat buffer;   
 		// stat (filename.c_str(), &buffer);
+		if (access( filename.c_str(), F_OK)){
+			throw StatusCodeException(HttpStatus::NotFound);
+		}
 		if (!(buffer.st_mode & S_IROTH))
 			throw StatusCodeException(HttpStatus::Forbidden);
-		if (access( filename.c_str(), F_OK))
-			throw StatusCodeException(HttpStatus::NotFound);
 	}
 
 	inline std::string	time_last_modification(struct stat buffer)
@@ -109,6 +121,29 @@ namespace Utils {
 			<< mon_name[ltm->tm_mon] << " " << (ltm->tm_year + 1900) << " " 
 			<< (ltm->tm_hour) % 24 << ":" << ltm->tm_min << ":" << ltm->tm_sec << " GMT";
 		return date.str();
+	}
+
+	inline int findNthOccur(std::string const & str, char ch, int N)
+	{
+		int occur = 0;
+
+		for (int i = 0; i < str.length(); i++) {
+			if (str[i] == ch) {
+				occur += 1;
+			}
+			if (occur == N)
+				return i;
+		}
+		return -1;
+	}
+
+	inline std::string getRoute(std::string const & str)
+	{
+		int pos = findNthOccur(str, '/', 3);
+		if (pos == -1)
+			return ("");
+		std::cerr << pos << std::endl;
+		return str.substr(pos);
 	}
 }
 

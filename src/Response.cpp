@@ -17,7 +17,7 @@ Response &Response::operator=(Response const & src)
 	return (*this);
 }
 
-Response::Response(Request const & req) : status(HttpStatus::StatusCode(200))
+Response::Response(Request const & req, const Config * config) : status(HttpStatus::StatusCode(200)), server(config)
 {
 	if (req.getMethod() == GET)
 		this->handleGetRequest(req);
@@ -27,19 +27,58 @@ Response::Response(Request const & req) : status(HttpStatus::StatusCode(200))
 		this->handleDeleteRequest(req);
 }
 
+std::string Response::getIndexFile(std::string filename)
+{
+	std::string index[2] = {"index.html", "houssam.html"};
+
+	filename = filename == "." ? "": filename;
+
+	for (int i = 0; i < 2; ++i)
+	{
+		std::cout << "in for loop :" << (filename + index[i])  << std::endl;
+		if (access((filename + index[i]).c_str(), F_OK))
+			continue ;
+		struct stat buffer;
+		stat ((filename + index[i]).c_str(), &buffer);
+		if (!(buffer.st_mode & S_IROTH))
+			throw StatusCodeException(HttpStatus::Forbidden);
+		else
+			return (filename + index[i]);
+	}
+	throw StatusCodeException(HttpStatus::Forbidden); 
+}
+
 void Response::handleGetRequest(Request const & req)
 {
 
 	std::string filename = req.getRequestTarget().substr(1);
+	filename = filename == "" ? ".": filename;
 	std::ostringstream oss("");
 
+	// this->basePath = Utils::getFilePath(req.getRequestTarget().substr(1));
+	// std::cout << "*" << basePath << "*" << std::endl;
 	file.open(filename.c_str());
-
 	stat (filename.c_str(), &this->fileStat);
+	std::cerr << "filename: " << filename << std::endl;
 	Utils::fileStat(filename, fileStat);
+	std::cerr << "route : "<< Utils::getRoute(req.getHeader("Referer")) << std::endl;
+	if (S_ISDIR(fileStat.st_mode) && filename[filename.length() - 1] != '/' && filename != ".")
+	{
+		throw StatusCodeException(HttpStatus::MovedPermanently, '/' + filename + '/'); 
+	}
+	if (S_ISDIR(fileStat.st_mode))
+	{
+		filename = getIndexFile(filename);
+		// std::cerr <<"filename: *" <<  filename <<"*" << std::endl;
+		file.close();
+		file.open(filename.c_str());
+		stat (filename.c_str(), &this->fileStat);
+		// oss.str("");
+		// oss << this->fileStat.st_size;
+	}
 	oss << this->fileStat.st_size;
-	std::cerr << "SIZE: " <<  this->fileStat.st_size << std::endl;
-	std::cerr << "FILE: " <<  filename.c_str() << std::endl;
+	// std::cerr << "SIZE: " <<  this->fileStat.st_size << std::endl;
+	// std::cerr << "FILE: " <<  filename.c_str() << std::endl;
 	insert_header("Content-Length", oss.str());
 	insert_header("Date", Utils::getDate());
 	insert_header("Server", SERVER_NAME);
@@ -97,7 +136,7 @@ void    Response::send_file(Socket & connection)
 		file.seekg(file.tellg() - lost);
 	}
 
-	std::cerr << ret << "\n";
+	// std::cerr << ret << "\n";
 }
 
 void    Response::readFile() {
@@ -108,13 +147,17 @@ void    Response::readFile() {
 	buffer.resize(s);
 }
 
-std::string errorPage(HttpStatus::StatusCode code) {
+std::string errorPage(const StatusCodeException & e) {
 	std::ostringstream body("");
 	
 
-	body << "HTTP/1.1 " << code << " " << reasonPhrase(code) << CRLF;
+	body << "HTTP/1.1 " << e.getStatusCode() << " " << reasonPhrase(e.getStatusCode()) << CRLF;
 	body << "Connection: keep-alive" << CRLF;
 	body << "Content-Type: text/html" << CRLF;
+	if (e.getLocation() != ""){
+		body << "Location: " << e.getLocation() <<  CRLF;
+		std::cerr << "Location: " << e.getLocation() <<  CRLF;
+	}
 	body << "Date: " << Utils::getDate() <<  CRLF;
 	body << "Server: " << SERVER_NAME << CRLF << CRLF;
 
@@ -123,10 +166,10 @@ std::string errorPage(HttpStatus::StatusCode code) {
 	body << "<!DOCTYPE html>\n" ;
 	body << "<html lang=\"en\">\n";
 	body << "<head>\n";
-    body << "<title>" << code << "</title>\n";
+    body << "<title>" << e.getStatusCode() << "</title>\n";
 	body << "</head>\n";
 	body << "<body>\n";
-    body << "<h1 style=\"text-align:center\">" << code << " - " << HttpStatus::reasonPhrase(code) << "</h1>\n";
+    body << "<h1 style=\"text-align:center\">" << e.getStatusCode() << " - " << HttpStatus::reasonPhrase(e.getStatusCode()) << "</h1>\n";
 	body << "<hr>\n";
 	body << "<h4 style=\"text-align:center\">WebServer</h4>\n";
 	body << "</body>\n";

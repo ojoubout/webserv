@@ -18,24 +18,28 @@
 #include <ctime>
 #include <fstream>
 #include <csignal>
+
+#include <cctype>
+#include <set>
+#include <cstdlib>
+#include <stdexcept>
+#include <algorithm>
+
 #include "Socket.hpp"
-#include "Message.hpp"
-#include "Request.hpp"
-#include "MimeTypes.hpp"
+// #include "Message.hpp"
+// #include "Request.hpp"
+// #include "MimeTypes.hpp"
+#include "Config.hpp"
+#include "Response.hpp"
+// #include "Utils.hpp"
 
 typedef int sockid_t;
+extern std::vector<Config> servers;
 
-static const std::string wday_name[7] = {
-	"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"
-};
-
-static const std::string mon_name[12] = {
-	"Jan", "Feb", "Mar", "Apr", "May", "Jun",
-	"Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
-};
 void error(std::string message);
-#include "Response.hpp"
-#include "Utils.hpp"
+void open_config_file(int argc, char *argv[]);
+
+
 // int sockfd;
 // sockaddr_in address;
 #endif

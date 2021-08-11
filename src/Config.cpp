@@ -1,10 +1,13 @@
 #include "Config.hpp"
 
 Config::Config() {
+    char *cwd = getcwd(NULL, 0);
     port = 80;
     host = "0.0.0.0";
-    root = getcwd(NULL, 0);
+    root = cwd;
     max_body_size = 1000000; // default 1m
+    socket = NULL;
+    free(cwd);
 }
 
 Config::Config(const Config & config) {
@@ -22,9 +25,9 @@ Config::Config(const Config & config) {
     index = config.index;
     cgi = config.cgi;
     upload = config.upload;
+    socket = config.socket;
 }
 
 Config::~Config() {
-
 }
 
