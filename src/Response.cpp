@@ -19,12 +19,41 @@ Response &Response::operator=(Response const & src)
 
 Response::Response(Request const & req, const Config * config) : status(HttpStatus::StatusCode(200)), server(config)
 {
+	const Config * location = getLocation(req, config);
+	location = location ?: server;
+	const std::string requested_file = getRequestedFile(req, location);
+	std::cerr << "Requested File: " << requested_file << std::endl;
 	if (req.getMethod() == GET)
-		this->handleGetRequest(req);
+		this->handleGetRequest(req, location);
 	if (req.getMethod() == POST)
-		this->handlePostRequest(req);
+		this->handlePostRequest(req, location);
 	if (req.getMethod() == DELETE)
-		this->handleDeleteRequest(req);
+		this->handleDeleteRequest(req, location);
+}
+
+const std::string Response::getRequestedFile(const Request & req, const Config * location) {
+	const std::string path = getPathFromUri(req.getRequestTarget());
+	std::string root = location->root;
+	root += location->uri != "" ? path.substr(location->uri.length()) : path;
+	return root;
+}
+
+static const std::string getPathFromUri(const std::string & uri) {
+	return uri.substr(0, uri.find_first_of('?'));
+}
+static const Config * getLocation(const Request & req, const Config * server) {
+	size_t len = 0;
+	const Config * loc = NULL;
+	for (std::map<std::string, Config>::const_iterator it = server->location.begin(); it != server->location.end(); ++it) {
+		const std::string path = getPathFromUri(req.getRequestTarget());
+		if (it->first.length() <= path.length() && it->first.length() > len) {
+			if (path.compare(0, it->first.length(), it->first.c_str()) == 0) {
+				len = it->first.length();
+				loc = &it->second;
+			}
+		}
+	}
+	return loc;
 }
 
 std::string Response::getIndexFile(std::string filename)
@@ -48,9 +77,9 @@ std::string Response::getIndexFile(std::string filename)
 	throw StatusCodeException(HttpStatus::Forbidden); 
 }
 
-void Response::handleGetRequest(Request const & req)
+void Response::handleGetRequest(Request const & req, const Config * location)
 {
-
+	std::cout << "root: " << location->root << std::endl;
 	std::string filename = req.getRequestTarget().substr(1);
 	filename = filename == "" ? ".": filename;
 	std::ostringstream oss("");
@@ -85,19 +114,19 @@ void Response::handleGetRequest(Request const & req)
 	insert_header("Last-Modified", Utils::time_last_modification(this->fileStat));
 	// insert_header("Transfer-Encoding", "chunked");
 	const char * type = MimeTypes::getType(filename.c_str());
-	type = type ? type : "text/plain";
+	type = type ?: "text/plain";
 	insert_header("Content-Type", type);
 	insert_header("Connection", "keep-alive");
 	insert_header("Accept-Ranges", "bytes");
 
 }
 
-void Response::handlePostRequest(Request const & req)
+void Response::handlePostRequest(Request const & req, const Config * location)
 {
 
 }
 
-void Response::handleDeleteRequest(Request const & req)
+void Response::handleDeleteRequest(Request const & req, const Config * location)
 {
 
 }

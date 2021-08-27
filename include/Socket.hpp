@@ -25,6 +25,7 @@ private:
     int _fd;
     sockaddr_in _address;
 
+    Socket * socket;
 public:
     Socket();
     Socket(int domain, int type, int protocol);
@@ -47,7 +48,11 @@ public:
     std::string receive() const;
     void send(Buffer & buffer) const;
     std::string getHost() const;
-    int getPort() const;
+    in_port_t getPort() const;
+
+    void setSocket(Socket * sock);
+    const Socket * getSocket() const;
+
     // void send(std::vector<char> vec) const;
 
 };

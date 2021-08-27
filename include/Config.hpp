@@ -41,6 +41,7 @@ public:
     std::string upload;
 
     Socket *socket;
+    std::string uri;
 };
 
 #endif

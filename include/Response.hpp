@@ -24,6 +24,8 @@ class Response : public Message
         std::string basePath;
 
         const Config * server;
+
+        const std::string getRequestedFile(const Request &, const Config *);
     public:
         Buffer buffer;
         Response();
@@ -31,9 +33,9 @@ class Response : public Message
         Response(Request const &, const Config *);
         ~Response();
         Response &operator= (Response const &);
-        void handleGetRequest(Request const &);
-        void handlePostRequest(Request const &);
-        void handleDeleteRequest(Request const &);
+        void handleGetRequest(Request const &, const Config *);
+        void handlePostRequest(Request const &, const Config *);
+        void handleDeleteRequest(Request const &, const Config *);
         std::string HeadertoString() const;
         void    send_file(Socket & connection);
         void    readFile();
@@ -44,4 +46,7 @@ class Response : public Message
 };
 
 std::string errorPage(const StatusCodeException & e);
+static const Config * getLocation(const Request & req, const Config * server);
+static const std::string getPathFromUri(const std::string & uri);
+
 #endif

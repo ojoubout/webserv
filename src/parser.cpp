@@ -232,6 +232,7 @@ static void parse(std::ifstream & file) {
                 if (curr_server->location.find(directive[1]) == curr_server->location.end()) {
                     curr_server->location.insert(make_pair(directive[1], Config(*curr_server)));
                     curr_location = &curr_server->location[directive[1]];
+                    curr_location->uri = directive[1];
                 } else {
                     error(DUPLICATE_LOCATION, directive[1]);
                 }
@@ -252,7 +253,7 @@ static void parse(std::ifstream & file) {
             }
         } else if (directive.size() == 4) {
             if (directive[0] == "listen") {
-                config->host = directive[1];
+                config->host = directive[1] == "localhost" ? "127.0.0.1" : directive[1];
                 if (!isnumber(directive[2])) {
                     error(INVALID_PORT, directive[2]);
                 }

@@ -1,10 +1,10 @@
 #include "Socket.hpp"
 
-Socket::Socket() : _fd (-1) {
+Socket::Socket() : _fd (-1), socket(NULL) {
     memset(&_address, 0, sizeof(_address));
 }
 
-Socket::Socket(int domain, int type, int protocol) {
+Socket::Socket(int domain, int type, int protocol) : socket(NULL) {
     create(domain, type, protocol);
 }
 
@@ -13,9 +13,7 @@ Socket::~Socket() {
 }
 
 void Socket::create(int domain, int type, int protocol) {
-    std::cout << "Init Socket" << std::endl;
     _fd = ::socket(domain, type, protocol);
-    std::cout << "SOCKET: " << _fd << std::endl;
     if (_fd == -1) {
         error("Failed to create socket");
     }
@@ -87,7 +85,7 @@ Socket Socket::accept() const {
     socklen_t addrlen = sizeof(_address);
     Socket sock;
 
-	sock._fd = ::accept(_fd, (sockaddr *) & _address, &addrlen);
+	sock._fd = ::accept(_fd, (struct sockaddr *) (&sock._address), &addrlen);
 
     if (sock._fd == -1 && errno != EAGAIN) {
 		error("Failed to grap connection");
@@ -135,6 +133,14 @@ std::string Socket::getHost() const {
     return inet_ntoa(_address.sin_addr);
 }
 
-int Socket::getPort() const {
+in_port_t Socket::getPort() const {
     return ntohs(_address.sin_port);
+}
+
+void Socket::setSocket(Socket * sock) {
+    socket = sock;
+}
+
+const Socket * Socket::getSocket() const {
+    return socket;
 }
