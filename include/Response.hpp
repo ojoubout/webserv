@@ -25,7 +25,7 @@ class Response : public Message
 
         const Config * server;
 
-        const std::string getRequestedFile(const Request &, const Config *);
+        const std::string getRequestedPath(const Request &, const Config *);
     public:
         Buffer buffer;
         Response();

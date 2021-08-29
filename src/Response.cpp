@@ -1,4 +1,5 @@
 #include "Response.hpp"
+#include "debug.hpp"
 
 Response::Response()
 {
@@ -21,8 +22,15 @@ Response::Response(Request const & req, const Config * config) : status(HttpStat
 {
 	const Config * location = getLocation(req, config);
 	location = location ?: server;
-	const std::string requested_file = getRequestedFile(req, location);
-	std::cerr << "Requested File: " << requested_file << std::endl;
+
+
+	const std::string request_path = getRequestedPath(req, location);
+
+
+	std::cout << req.getRequestTarget() << std::endl;
+	std::cout << location->root << std::endl;
+	std::cout << request_path << std::endl;
+
 	if (req.getMethod() == GET)
 		this->handleGetRequest(req, location);
 	if (req.getMethod() == POST)
@@ -31,11 +39,20 @@ Response::Response(Request const & req, const Config * config) : status(HttpStat
 		this->handleDeleteRequest(req, location);
 }
 
-const std::string Response::getRequestedFile(const Request & req, const Config * location) {
+const std::string Response::getRequestedPath(const Request & req, const Config * location) {
 	const std::string path = getPathFromUri(req.getRequestTarget());
-	std::string root = location->root;
-	root += location->uri != "" ? path.substr(location->uri.length()) : path;
-	return root;
+	struct stat buffer;
+
+	std::string requested_path = location->root;
+	requested_path += location->uri != "" ? path.substr(location->uri.length()) : path;
+	// dout << "SUBSTR: " << location->uri << " " << location->uri.length() << " " << path.substr(location->uri.length()) << std::endl;
+
+	std::cerr << "Requested File: " << requested_path << std::endl;
+	if (requested_path[requested_path.length() - 1] != '/' && stat(requested_path.c_str(), &buffer) == 0 && S_ISDIR(buffer.st_mode)) {
+		throw StatusCodeException(HttpStatus::MovedPermanently, path + '/');
+	}
+
+	return requested_path;
 }
 
 static const std::string getPathFromUri(const std::string & uri) {
