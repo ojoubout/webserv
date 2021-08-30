@@ -27,6 +27,7 @@ Config::Config(const Config & config) {
     cgi = config.cgi;
     upload = config.upload;
     socket = config.socket;
+    uri = config.uri;
 }
 
 Config::~Config() {
