@@ -18,26 +18,37 @@ Response &Response::operator=(Response const & src)
 	return (*this);
 }
 
-Response::Response(Request const & req, const Config * config) : status(HttpStatus::StatusCode(200)), server(config)
+Response::Response(Request const & req, const Config * config) : status(HttpStatus::StatusCode(200)), server(config), stream(NULL)
 {
 	const Config * location = getLocation(req, config);
 	location = location ?: server;
 
+	try {
 
-	const std::string request_path = getRequestedPath(req, location);
-
-
-	std::cout << req.getRequestTarget() << std::endl;
-	std::cout << location->root << std::endl;
-	std::cout << request_path << std::endl;
-
-	if (req.getMethod() == GET)
-		this->handleGetRequest(req, location);
-	if (req.getMethod() == POST)
-		this->handlePostRequest(req, location);
-	if (req.getMethod() == DELETE)
-		this->handleDeleteRequest(req, location);
+		if (req.getHeader("Host") == "") {
+			throw StatusCodeException(HttpStatus::BadRequest);
+		}
+		if (req.getMethod() == GET) {
+			this->handleGetRequest(req, location);
+		} else if (req.getMethod() == POST) {
+			this->handlePostRequest(req, location);
+		} else if (req.getMethod() == DELETE) {
+			this->handleDeleteRequest(req, location);
+		}
+	} catch (const StatusCodeException & e) {
+		setErrorPage(e, location);
+	}
 }
+
+// static const void handleRequest(const Request & req, const Config * location) {	
+// 	if (req.getMethod() == GET) {
+// 		this->handleGetRequest(req, location);
+// 	} else if (req.getMethod() == POST) {
+// 		this->handlePostRequest(req, location);
+// 	} else if (req.getMethod() == DELETE) {
+// 		this->handleDeleteRequest(req, location);
+// 	}
+// }
 
 const std::string Response::getRequestedPath(const Request & req, const Config * location) {
 	const std::string path = getPathFromUri(req.getRequestTarget());
@@ -47,7 +58,7 @@ const std::string Response::getRequestedPath(const Request & req, const Config *
 	requested_path += location->uri != "" ? path.substr(location->uri.length()) : path;
 	// dout << "SUBSTR: " << location->uri << " " << location->uri.length() << " " << path.substr(location->uri.length()) << std::endl;
 
-	std::cerr << "Requested File: " << requested_path << std::endl;
+	dout << "Requested File: " << requested_path << std::endl;
 	if (requested_path[requested_path.length() - 1] != '/' && stat(requested_path.c_str(), &buffer) == 0 && S_ISDIR(buffer.st_mode)) {
 		throw StatusCodeException(HttpStatus::MovedPermanently, path + '/');
 	}
@@ -81,7 +92,7 @@ std::string Response::getIndexFile(std::string filename)
 
 	for (int i = 0; i < 2; ++i)
 	{
-		std::cout << "in for loop :" << (filename + index[i])  << std::endl;
+		dout << "in for loop :" << (filename + index[i])  << std::endl;
 		if (access((filename + index[i]).c_str(), F_OK))
 			continue ;
 		struct stat buffer;
@@ -96,18 +107,30 @@ std::string Response::getIndexFile(std::string filename)
 
 void Response::handleGetRequest(Request const & req, const Config * location)
 {
-	std::cout << "root: " << location->root << std::endl;
-	std::string filename = req.getRequestTarget().substr(1);
-	filename = filename == "" ? ".": filename;
+	std::string filename = getRequestedPath(req, location);
+
 	std::ostringstream oss("");
 
+	dout << "root: " << filename << std::endl;
 	// this->basePath = Utils::getFilePath(req.getRequestTarget().substr(1));
-	// std::cout << "*" << basePath << "*" << std::endl;
-	file.open(filename.c_str());
+	// dout << "*" << basePath << "*" << std::endl;
+	std::fstream * file = new std::fstream();
+	file->open(filename.c_str());
+	if (file->is_open()) {
+		stream = file;
+	} else {
+		if (errno == ENOENT) {
+			throw StatusCodeException(HttpStatus::NotFound);
+		} else if (errno == EPERM) {
+			throw StatusCodeException(HttpStatus::Forbidden);
+		} else if (errno == ENAMETOOLONG) {
+			throw StatusCodeException(HttpStatus::URITooLong);
+		}
+	}
 	stat (filename.c_str(), &this->fileStat);
-	std::cerr << "filename: " << filename << std::endl;
+	dout << "filename: " << filename << std::endl;
 	Utils::fileStat(filename, fileStat);
-	std::cerr << "route : "<< Utils::getRoute(req.getHeader("Referer")) << std::endl;
+	dout << "route : "<< Utils::getRoute(req.getHeader("Referer")) << std::endl;
 	if (S_ISDIR(fileStat.st_mode) && filename[filename.length() - 1] != '/' && filename != ".")
 	{
 		throw StatusCodeException(HttpStatus::MovedPermanently, '/' + filename + '/'); 
@@ -115,16 +138,16 @@ void Response::handleGetRequest(Request const & req, const Config * location)
 	if (S_ISDIR(fileStat.st_mode))
 	{
 		filename = getIndexFile(filename);
-		// std::cerr <<"filename: *" <<  filename <<"*" << std::endl;
-		file.close();
-		file.open(filename.c_str());
+		// dout <<"filename: *" <<  filename <<"*" << std::endl;
+		file->close();
+		file->open(filename.c_str());
 		stat (filename.c_str(), &this->fileStat);
 		// oss.str("");
 		// oss << this->fileStat.st_size;
 	}
 	oss << this->fileStat.st_size;
-	// std::cerr << "SIZE: " <<  this->fileStat.st_size << std::endl;
-	// std::cerr << "FILE: " <<  filename.c_str() << std::endl;
+	// dout << "SIZE: " <<  this->fileStat.st_size << std::endl;
+	// dout << "FILE: " <<  filename.c_str() << std::endl;
 	insert_header("Content-Length", oss.str());
 	insert_header("Date", Utils::getDate());
 	insert_header("Server", SERVER_NAME);
@@ -161,8 +184,8 @@ std::string Response::HeadertoString() const
 	return (response.str());
 }
 
-const std::ifstream & Response::getFile() const {
-	return file;
+const std::iostream * Response::getFile() const {
+	return stream;
 }
 
 void    Response::send_file(Socket & connection)
@@ -172,43 +195,31 @@ void    Response::send_file(Socket & connection)
 
 	ssize_t sent = 0;
 	ssize_t temp = 0;
-	file.read(buff, SIZE);
-	std::streamsize s = ((file) ? SIZE : file.gcount());
+	stream->read(buff, SIZE);
+	std::streamsize s = ((*stream) ? SIZE : stream->gcount());
 
 	int ret = ::send(connection.getFD(), buff, s, 0);
 
 	if (ret != -1) {
 		std::streampos lost = s - ret;
-		file.seekg(file.tellg() - lost);
+		stream->seekg(stream->tellg() - lost);
 	}
 
-	// std::cerr << ret << "\n";
+	// dout << ret << "\n";
 }
 
 void    Response::readFile() {
 
 	buffer.resize(1024);
-	file.read(buffer.data, buffer.size);
-	std::streamsize s = ((file) ? buffer.size : file.gcount());
+	stream->read(buffer.data, buffer.size);
+	std::streamsize s = ((*stream) ? buffer.size : stream->gcount());
 	buffer.resize(s);
 }
 
-std::string errorPage(const StatusCodeException & e) {
-	std::ostringstream body("");
+std::stringstream * errorTemplate(const StatusCodeException & e) {
+	std::stringstream * alloc = new std::stringstream("");
+	std::stringstream & body = *alloc;
 	
-
-	body << "HTTP/1.1 " << e.getStatusCode() << " " << reasonPhrase(e.getStatusCode()) << CRLF;
-	body << "Connection: keep-alive" << CRLF;
-	body << "Content-Type: text/html" << CRLF;
-	if (e.getLocation() != ""){
-		body << "Location: " << e.getLocation() <<  CRLF;
-		std::cerr << "Location: " << e.getLocation() <<  CRLF;
-	}
-	body << "Date: " << Utils::getDate() <<  CRLF;
-	body << "Server: " << SERVER_NAME << CRLF << CRLF;
-
-
-
 	body << "<!DOCTYPE html>\n" ;
 	body << "<html lang=\"en\">\n";
 	body << "<head>\n";
@@ -220,9 +231,41 @@ std::string errorPage(const StatusCodeException & e) {
 	body << "<h4 style=\"text-align:center\">WebServer</h4>\n";
 	body << "</body>\n";
 
-	return body.str();
+	return &body;
 }
 
-// bool send_buffer(Socket & connection) {
-// 	connection.send()
-// }
+void Response::setErrorPage(const StatusCodeException & e, const Config * location) {
+		status = e.getStatusCode();
+
+		_headers["Connection"] = "keep-alive";
+		_headers["Content-Type"] = "text/html";
+		_headers["Date"] = Utils::getDate();
+		_headers["Server"] = SERVER_NAME;
+
+		if (e.getLocation() != ""){
+			_headers["Location"] = e.getLocation();
+			dout << "Location: " << e.getLocation() <<  CRLF;
+		}
+
+		std::stringstream * err;
+
+		const std::map<int, std::string> & error_page = location->error_page.empty() ? server->error_page : location->error_page;
+		std::fstream * errPage = NULL;
+
+		if (error_page.find(status) != error_page.end()) {
+			errPage = new std::fstream();
+			std::string filename = location->root;
+
+			filename += error_page.find(status)->second;
+			errPage->open(filename.c_str());
+		}
+
+		if (!errPage || !errPage->is_open()) {
+			stream = errorTemplate(e);
+			if (errPage) {
+				delete errPage;
+			}
+		} else {
+			stream = errPage;
+		}
+}

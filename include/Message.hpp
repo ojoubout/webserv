@@ -10,7 +10,6 @@
 class Message
 {
 protected:
-	std::string _start_line;
 	std::map<std::string, std::string> _headers;
 	std::string _body;
 
@@ -18,7 +17,6 @@ public:
 	Message();
 	Message(const std::string & message);
 	~Message();
-	const std::string & getStartLine() const;
 	const std::map<std::string, std::string> & getHeader() const;
 	const std::string getHeader(const std::string & key) const;
 	const std::string & getBody() const; 

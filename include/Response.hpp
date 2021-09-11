@@ -19,7 +19,7 @@ class Response : public Message
 {
     private:
         HttpStatus::StatusCode status;
-        std::ifstream file;
+        std::iostream * stream;
         struct stat fileStat;
         std::string basePath;
 
@@ -39,14 +39,16 @@ class Response : public Message
         std::string HeadertoString() const;
         void    send_file(Socket & connection);
         void    readFile();
-        const std::ifstream & getFile() const;
+        const std::iostream * getFile() const;
         std::string getIndexFile(std::string);
+        void setErrorPage(const StatusCodeException & e, const Config * location);
 
         void setServerConfig(Config * config);
 };
 
-std::string errorPage(const StatusCodeException & e);
+std::stringstream * errorPage(const StatusCodeException & e);
 static const Config * getLocation(const Request & req, const Config * server);
 static const std::string getPathFromUri(const std::string & uri);
+static const void handleRequest(const Request & req, const Config * location);
 
 #endif

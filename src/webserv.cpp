@@ -150,36 +150,18 @@ int main(int argc, char *argv[]) {
 				// connection.setFD(fds[i].fd);
 				// connection->setState(NonBlockingSocket);
 
-				if (fds[i].revents & POLLIN) {
-
-					std::string message = connection.receive();
-					
+				if (fds[i].revents & POLLIN) {					
 					// std::cerr << message << std::endl;
 
-					Request request(message);
-					try {
-						if (request.getHeader("Host") == "") {
-							throw StatusCodeException(HttpStatus::BadRequest);
-						}
+					Request request(connection);
 
-						response = new Response(request, getConnectionServerConfig(connection.getSocket(), request));
-						
-						std::string str = response->HeadertoString();
+					response = new Response(request, getConnectionServerConfig(connection.getSocket(), request));
+					
+					std::string data = response->HeadertoString();
 
-						responses.insert(std::make_pair(connection.getFD(), response));
-						
-						response->buffer.setData(str.c_str(), str.length());
-						
-						fds[i].events = POLLOUT;
-					} catch(const StatusCodeException & e) {
-						response = new Response();
-
-						std::string data = errorPage(e);
-						response->buffer.setData(data.c_str(), data.length());
-
-						responses.insert(std::make_pair(connection.getFD(), response));
-						fds[i].events = POLLOUT;
-					}
+					response->buffer.setData(data.c_str(), data.length());
+					responses.insert(std::make_pair(connection.getFD(), response));
+					fds[i].events = POLLOUT;
 				}
 
 				response = responses.find(connection.getFD())->second;
@@ -187,13 +169,13 @@ int main(int argc, char *argv[]) {
 				if (fds[i].revents & POLLOUT) {
 					
 					
-					if (response->buffer.length() == 0 && response->getFile().is_open()) {
+					if (response->buffer.length() == 0 && response->getFile()) {
 						response->readFile();
 					}
 
 					connection.send(response->buffer);
 
-					if ((!response->getFile().is_open() || (response->getFile().is_open() && !response->getFile())) && response->buffer.length() == 0) {
+					if ((!response->getFile() || (response->getFile() && !(*response->getFile()))) && response->buffer.length() == 0) {
 						close = true;
 					}
 				}

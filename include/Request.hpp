@@ -3,6 +3,7 @@
 
 #include "Message.hpp"
 #include "StatusCodeException.hpp"
+#include "Socket.hpp"
 // #include "webserv.hpp"
 
 enum Method {
@@ -18,9 +19,10 @@ private:
     std::string _request_target;
     std::string _http_version;
 public:
-    Request(const std::string & message) throw (StatusCodeException);
+    Request(const Socket & connection) throw (StatusCodeException);
     ~Request();
-    Method getMethod() const;
+
+    const Method getMethod() const;
     const std::string & getRequestTarget() const;
     const std::string & getHTTPVersion() const;
 

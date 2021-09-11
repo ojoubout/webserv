@@ -11,33 +11,55 @@ Method getMethodFromName(const std::string & method) {
     return UNKNOWN;
 }
 
-Request::Request(const std::string & message) throw(StatusCodeException) : Message(message) {
-    size_t start = 0;
-    size_t end;
+Request::Request(const Socket & connection) {
+    size_t max_request_size = 16*1024;
+    char buffer[BUFFER_SIZE + 1];
+    std::string message;
+    int bytesRead;
 
-    for (int i = 0; i < 3; ++i) {
-        end = _start_line.find_first_of(' ', start);
-        std::string token = _start_line.substr(start, end - start);
-        start = _start_line.find_first_not_of(' ', end);
-        if (i == 0) {
-            _method = getMethodFromName(token);
-        } else if (i == 1) {
-            _request_target = token;
-        } else {
-            _http_version = token;
-        }
+    while ((bytesRead = recv(_fd, buffer, BUFFER_SIZE, 0)) > 0) {
+        buffer[bytesRead] = 0;
+        message += buffer;
     }
 
-    if (_request_target.empty() || _http_version != "HTTP/1.1") {
-        throw StatusCodeException(HttpStatus::BadRequest);
-    }
+    return message;
 }
+}
+
+// Request::Request(const std::string & message) throw(StatusCodeException) : Message(message) {
+//     size_t start = 0;
+//     size_t end;
+
+//     for (int i = 0; i < 3; ++i) {
+//         end = _start_line.find_first_of(' ', start);
+//         std::string token = _start_line.substr(start, end - start);
+//         start = _start_line.find_first_not_of(' ', end);
+//         if (i == 0) {
+//             _method = getMethodFromName(token);
+//         } else if (i == 1) {
+//             _request_target = token;
+//         } else {
+//             _http_version = token;
+//         }
+//     }
+
+//     if (_request_target.empty() || _http_version != "HTTP/1.1") {
+//         throw StatusCodeException(HttpStatus::BadRequest);
+//     }
+// }
 
 Request::~Request() {
 }
 
+const Method Request::getMethod() const {
+    return this->_method;
+}
 
-Method Request::getMethod() const { return this->_method; }
-const std::string & Request::getRequestTarget() const { return this->_request_target; }
-const std::string & Request::getHTTPVersion() const { return this->_http_version; }
+const std::string & Request::getRequestTarget() const {
+    return this->_request_target;
+}
+
+const std::string & Request::getHTTPVersion() const {
+    return this->_http_version;
+}
 
