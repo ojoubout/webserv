@@ -49,6 +49,13 @@ void handle_signal(int sig) {
 	std::cout << "SIGNAL " << sig << std::endl;
 }
 
+void exit_program(int sig) {
+	for (std::vector<Config>::const_iterator it = servers.begin(); it != servers.end(); ++it) {
+		it->socket->close();
+		std::cerr << "Close Socket: " << it->socket->getFD() << std::endl;
+	}
+	return exit(EXIT_SUCCESS);
+}
 
 Socket * isSocket(int fd) {
 	for (std::vector<Config>::const_iterator it = servers.begin(); it != servers.end(); ++it) {
@@ -69,15 +76,16 @@ Socket * socketExists(const std::vector<Config>::iterator & curr_it) {
 	return NULL;
 }
 
-const Config * getConnectionServerConfig(const Socket * socket, const Request & request) {
+const Config * getConnectionServerConfig(const Socket * socket, const Request * request) {
 	const Config * default_server = NULL;
 
 	for (std::vector<Config>::const_iterator it = servers.begin(); it != servers.end(); ++it) {
 		if (it->host == socket->getHost() && it->port == socket->getPort()) {
 			if (default_server == NULL) {
 				default_server = &(*it);
+				if (request == NULL) break;
 			}
-			if (it->server_name == request.getHeader("Host")) {
+			if (it->server_name == request->getHeader("Host")) {
 				return &(*it);
 			}
 		}
@@ -106,6 +114,8 @@ int main(int argc, char *argv[]) {
 	}
 
 	signal(13, handle_signal);
+	signal(1, exit_program);
+	signal(2, exit_program);
 
 	while (true) {
 
@@ -153,10 +163,20 @@ int main(int argc, char *argv[]) {
 				if (fds[i].revents & POLLIN) {					
 					// std::cerr << message << std::endl;
 
-					Request request(connection);
+					try {
+						Request request(connection); // I need to add request to epoll
+						std::cerr << "Request Succesful" << std::endl;
+						response = new Response(request, getConnectionServerConfig(connection.getSocket(), &request));
+					} catch (const StatusCodeException & e) {
 
-					response = new Response(request, getConnectionServerConfig(connection.getSocket(), request));
-					
+						std::cerr << "Caught exception: " << e.getStatusCode() << " " << e.what() << std::endl;
+						response = new Response();
+
+						response->setServerConfig(getConnectionServerConfig(connection.getSocket(), NULL));
+
+						response->setErrorPage(e, response->getServerConfig());
+					}
+
 					std::string data = response->HeadertoString();
 
 					response->buffer.setData(data.c_str(), data.length());
@@ -169,13 +189,14 @@ int main(int argc, char *argv[]) {
 				if (fds[i].revents & POLLOUT) {
 					
 					
-					if (response->buffer.length() == 0 && response->getFile()) {
+					if (response->buffer.length() == 0 && !response->getFile()->eof()) {
 						response->readFile();
 					}
 
 					connection.send(response->buffer);
 
-					if ((!response->getFile() || (response->getFile() && !(*response->getFile()))) && response->buffer.length() == 0) {
+					// if ((!response->getFile() || (response->getFile() && !(*response->getFile()))) && response->buffer.length() == 0) {
+					if (response->getFile()->eof() && response->buffer.length() == 0) {
 						close = true;
 					}
 				}
@@ -193,10 +214,6 @@ int main(int argc, char *argv[]) {
 			}
 		}
 	}
-	for (std::vector<Config>::const_iterator it = servers.begin(); it != servers.end(); ++it) {
-		it->socket->close();
-	}
-
 	// Bind the socket to a IP / port
 	// Mark the socket for listening in
 	// Accept a call

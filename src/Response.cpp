@@ -23,20 +23,15 @@ Response::Response(Request const & req, const Config * config) : status(HttpStat
 	const Config * location = getLocation(req, config);
 	location = location ?: server;
 
-	try {
-
-		if (req.getHeader("Host") == "") {
-			throw StatusCodeException(HttpStatus::BadRequest);
-		}
-		if (req.getMethod() == GET) {
-			this->handleGetRequest(req, location);
-		} else if (req.getMethod() == POST) {
-			this->handlePostRequest(req, location);
-		} else if (req.getMethod() == DELETE) {
-			this->handleDeleteRequest(req, location);
-		}
-	} catch (const StatusCodeException & e) {
-		setErrorPage(e, location);
+	if (req.getHeader("Host") == "") {
+		throw StatusCodeException(HttpStatus::BadRequest);
+	}
+	if (req.getMethod() == GET) {
+		this->handleGetRequest(req, location);
+	} else if (req.getMethod() == POST) {
+		this->handlePostRequest(req, location);
+	} else if (req.getMethod() == DELETE) {
+		this->handleDeleteRequest(req, location);
 	}
 }
 
@@ -117,7 +112,8 @@ void Response::handleGetRequest(Request const & req, const Config * location)
 	std::fstream * file = new std::fstream();
 	file->open(filename.c_str());
 	if (file->is_open()) {
-		stream = file;
+		delete _body;
+		_body = file;
 	} else {
 		if (errno == ENOENT) {
 			throw StatusCodeException(HttpStatus::NotFound);
@@ -144,6 +140,18 @@ void Response::handleGetRequest(Request const & req, const Config * location)
 		stat (filename.c_str(), &this->fileStat);
 		// oss.str("");
 		// oss << this->fileStat.st_size;
+	}
+	if (file->is_open()) {
+		delete _body;
+		_body = file;
+	} else {
+		if (errno == ENOENT) {
+			throw StatusCodeException(HttpStatus::NotFound);
+		} else if (errno == EPERM) {
+			throw StatusCodeException(HttpStatus::Forbidden);
+		} else if (errno == ENAMETOOLONG) {
+			throw StatusCodeException(HttpStatus::URITooLong);
+		}
 	}
 	oss << this->fileStat.st_size;
 	// dout << "SIZE: " <<  this->fileStat.st_size << std::endl;
@@ -185,7 +193,7 @@ std::string Response::HeadertoString() const
 }
 
 const std::iostream * Response::getFile() const {
-	return stream;
+	return _body;
 }
 
 void    Response::send_file(Socket & connection)
@@ -211,9 +219,17 @@ void    Response::send_file(Socket & connection)
 void    Response::readFile() {
 
 	buffer.resize(1024);
-	stream->read(buffer.data, buffer.size);
-	std::streamsize s = ((*stream) ? buffer.size : stream->gcount());
+	_body->read(buffer.data, buffer.size);
+	std::streamsize s = ((*_body) ? buffer.size : _body->gcount());
 	buffer.resize(s);
+}
+
+void Response::setServerConfig(const Config * config) {
+	this->server = config;
+}
+
+const Config * Response::getServerConfig() const {
+	return this->server;
 }
 
 std::stringstream * errorTemplate(const StatusCodeException & e) {
@@ -233,6 +249,8 @@ std::stringstream * errorTemplate(const StatusCodeException & e) {
 
 	return &body;
 }
+
+
 
 void Response::setErrorPage(const StatusCodeException & e, const Config * location) {
 		status = e.getStatusCode();
@@ -260,12 +278,13 @@ void Response::setErrorPage(const StatusCodeException & e, const Config * locati
 			errPage->open(filename.c_str());
 		}
 
+		delete _body;
 		if (!errPage || !errPage->is_open()) {
-			stream = errorTemplate(e);
+			_body = errorTemplate(e);
 			if (errPage) {
 				delete errPage;
 			}
 		} else {
-			stream = errPage;
+			_body = errPage;
 		}
 }

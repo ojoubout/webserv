@@ -1,6 +1,8 @@
 #include "Message.hpp"
 
-Message::Message(){}
+Message::Message() {
+    _body = new std::stringstream();
+}
 
 // static void trim(std::string & str) {
 //     int first = str.find_first_not_of(" \n\r\t");
@@ -50,13 +52,14 @@ Message::Message(){}
 // }
 
 Message::~Message() {
+    delete _body;
 }
 
 const std::map<std::string, std::string> & Message::getHeader() const {
     return this->_headers;
 }
 
-const std::string & Message::getBody() const {
+const std::iostream * Message::getBody() const {
     return this->_body;
 }
 

@@ -43,7 +43,8 @@ class Response : public Message
         std::string getIndexFile(std::string);
         void setErrorPage(const StatusCodeException & e, const Config * location);
 
-        void setServerConfig(Config * config);
+        void setServerConfig(const Config * config);
+        const Config * getServerConfig() const;
 };
 
 std::stringstream * errorPage(const StatusCodeException & e);

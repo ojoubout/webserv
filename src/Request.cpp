@@ -1,5 +1,7 @@
 #include "Request.hpp"
 
+const size_t Request::max_size[] = {6, 2 * 1024, 8, 1 * 1024, 4 * 1024, 8 * 1024};
+
 Method getMethodFromName(const std::string & method) {
     if (method == "GET") {
         return GET;
@@ -11,19 +13,173 @@ Method getMethodFromName(const std::string & method) {
     return UNKNOWN;
 }
 
-Request::Request(const Socket & connection) {
+
+Request::Request(const Socket & connection) throw(StatusCodeException) {
+
+    _parser.current_stat = _parser.METHOD;
+    _parser.cr = false;
+
+    _bparser.len = -1;
+    _bparser.cr = false;
+    _bparser.end = false;
+
+
     size_t max_request_size = 16*1024;
     char buffer[BUFFER_SIZE + 1];
-    std::string message;
-    int bytesRead;
+    ssize_t bytesRead;
 
-    while ((bytesRead = recv(_fd, buffer, BUFFER_SIZE, 0)) > 0) {
-        buffer[bytesRead] = 0;
-        message += buffer;
+    while ((bytesRead = connection.recv(buffer, BUFFER_SIZE)) >= 0) {
+        if (parse(buffer, bytesRead)) {
+            break;
+        }
     }
-
-    return message;
+    std::cerr << "Body: " << ((std::stringstream *)_body)->str() << "|" << std::endl;
 }
+
+static std::string & trim(std::string & str) {
+    int first = str.find_first_not_of(" \n\r\t");
+    int last = str.find_last_not_of(" \n\r\t");
+
+    if (first == std::string::npos)
+        first = 0;
+    str = str.substr(first, last + 1);
+    return str;
+}
+
+bool Request::parse(const char * buff, size_t size) {
+    size_t i;
+
+    for (i = 0; i < size; i++) {
+        if (_parser.cr && buff[i] == '\n') {
+            if (_parser.current_stat != _parser.HTTP_VER && _parser.current_stat != _parser.HEADER_KEY && _parser.current_stat != _parser.HEADER_VALUE) {
+                throw StatusCodeException(HttpStatus::BadRequest);
+            }
+            if (_parser.current_stat == _parser.HEADER_KEY) {
+                _parser.str.clear();
+            }
+        }
+        if ((_parser.key.size() + _parser.str.size()) > max_size[_parser.current_stat]) {
+            throw StatusCodeException(HttpStatus::BadRequest);
+        } else if (_parser.current_stat == _parser.METHOD && buff[i] == ' ') {
+            _method = getMethodFromName(_parser.str);
+            if (_method == UNKNOWN) {
+                throw StatusCodeException(HttpStatus::BadRequest);
+            }
+            _parser.current_stat = _parser.REQUEST_TARGET;
+        } else if (_parser.current_stat == _parser.REQUEST_TARGET && buff[i] == ' ') {
+            if (_parser.str.empty() || _parser.str[0] != '/') {
+                throw StatusCodeException(HttpStatus::BadRequest);
+            }
+            _request_target = _parser.str;
+            _parser.current_stat = _parser.HTTP_VER;
+        } else if (_parser.current_stat == _parser.HTTP_VER && _parser.cr && buff[i] == '\n') {
+            _http_version = _parser.str;
+            if (_http_version != "HTTP/1.1") {
+                throw StatusCodeException(HttpStatus::BadRequest);
+            }
+            _parser.current_stat = _parser.HEADER_KEY;
+        } else if (_parser.current_stat == _parser.HEADER_KEY && buff[i] == ':') {
+            _parser.key = trim(_parser.str);
+            _parser.current_stat = _parser.HEADER_VALUE;
+        } else if (_parser.current_stat == _parser.HEADER_VALUE && _parser.cr && buff[i] == '\n') {
+            insert_header(_parser.key, trim(_parser.str));
+            _parser.current_stat = _parser.HEADER_KEY;
+            _parser.key.clear();
+        } else if (_parser.current_stat == _parser.HEADER_KEY && _parser.str.empty() && _parser.cr && buff[i] == '\n') {
+            _parser.current_stat = _parser.BODY;
+        } else if (_parser.current_stat == _parser.BODY) {
+            size_t s = receiveBody(buff + i, size - i);
+            i += s;
+            if (s == 0) {
+                return true;
+            }
+        } else {
+            if (buff[i] == '\r')
+                _parser.cr = true;
+            else {
+                _parser.str += buff[i];
+                _parser.cr = false;
+            }
+            continue;
+        }
+        _parser.cr = false;
+        _parser.str.clear();
+    }
+    if (_parser.str.size() > max_size[_parser.current_stat]) {
+        throw StatusCodeException(HttpStatus::BadRequest);
+    }
+    return false;
+}
+
+bool isValidHex(const std::string hex) {
+    for (int i = 0; i < hex.length(); ++i) {
+        if (std::string("0123456789ABCDEFabcdef").find(hex[i]) == std::string::npos) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool isValidDecimal(const std::string decimal) {
+    for (int i = 0; i < decimal.length(); ++i) {
+        if (std::string("0123456789").find(decimal[i]) == std::string::npos) {
+            return false;
+        }
+    }
+    return true;
+}
+
+size_t Request::receiveBody(const char * buff, size_t size) {
+    int i = 0;
+
+    if (_headers.find("Transfer-Encoding") != _headers.end() && _headers["Transfer-Encoding"] == "chunked") {
+        for (i = 0; i < size; ++i) {
+            if (_bparser.len > 0) {
+                size_t write_len = std::min((size_t)_bparser.len, size - i);
+                _body->write(buff + i, write_len);
+                _bparser.len -= write_len;
+                i += write_len - 1;
+            } else if (_bparser.len == 0 && _bparser.cr && buff[i] == '\n') {
+                if (_bparser.end) {
+                    return 0;
+                }
+                _bparser.len = -1;
+            } else if (_bparser.len == -1) {
+                if (_bparser.cr && buff[i] == '\n') {
+                    std::stringstream ss;
+                    size_t last = _bparser.str.find_first_of(';');
+                    last = last == std::string::npos ? _bparser.str.length() : last;
+                    _bparser.str = _bparser.str.substr(0, last);
+                    if (!isValidHex(_bparser.str)) {
+                        throw StatusCodeException(HttpStatus::BadRequest);
+                    }
+                    ss << std::hex << _bparser.str;
+                    ss >> _bparser.len;
+                    _bparser.str.clear();
+                    
+                    _bparser.end = _bparser.len == 0;
+                    std::cerr << "chunked size: " << _bparser.len << std::endl;
+                } else if (buff[i] != '\r') {
+                    _bparser.str += buff[i];
+                }
+            }
+            if (buff[i] == '\r') _bparser.cr = true; else _bparser.cr = false;
+        }
+    } else if (_headers.find("Content-Length") != _headers.end()) {
+        if (isValidDecimal(_headers["Content-Length"])) {
+            _bparser.len = std::atoi(_headers["Content-Length"].c_str());
+            size_t write_len = std::min((size_t)_bparser.len, size);
+            _body->write(buff + i, write_len);
+            _bparser.len -= write_len;
+            i += write_len - 1;
+            if (_bparser.len == 0) {
+                return 0;
+            }
+        } else {
+            throw StatusCodeException(HttpStatus::BadRequest);
+        }
+    }
+    return i;
 }
 
 // Request::Request(const std::string & message) throw(StatusCodeException) : Message(message) {

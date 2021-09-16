@@ -4,6 +4,8 @@
 #include "Message.hpp"
 #include "StatusCodeException.hpp"
 #include "Socket.hpp"
+#include <algorithm>
+
 // #include "webserv.hpp"
 
 enum Method {
@@ -18,6 +20,27 @@ private:
     Method _method;
     std::string _request_target;
     std::string _http_version;
+
+    struct {
+        enum stat {
+            METHOD, REQUEST_TARGET, HTTP_VER, HEADER_KEY, HEADER_VALUE, BODY
+        } current_stat;
+        std::string str;
+        std::string key;
+        bool cr;
+    } _parser;
+
+    struct {
+        ssize_t len;
+        std::string str;
+        bool cr;
+        bool end;
+    } _bparser;
+    static const size_t max_size[];
+
+    bool parse(const char * buff, size_t size);
+    size_t receiveBody(const char * buff, size_t size);
+
 public:
     Request(const Socket & connection) throw (StatusCodeException);
     ~Request();
