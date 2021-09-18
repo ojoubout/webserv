@@ -1,6 +1,7 @@
 #ifndef UTILS_HPP
 # define UTILS_HPP
-# include "webserv.hpp"
+// # include "webserv.hpp"
+#define CRLF "\r\n"
 
 namespace Utils {
 
@@ -61,7 +62,7 @@ namespace Utils {
 	inline std::string getFileExtension(const std::string& path) {
 		std::string fileName = getFileName(path);
 		size_t extStart = fileName.find_last_of('.');
-		std::string ext = extStart == std::string::npos ? "" : fileName.substr(extStart + 1);
+		std::string ext = extStart == std::string::npos ? "" : fileName.substr(extStart);
 		// Uti transform(ext.begin(), ext.end(), ext.begin(), op_custom);
 		
 		return ext;
@@ -98,6 +99,13 @@ namespace Utils {
 			<< mon_name[ltm->tm_mon] << " " << (ltm->tm_year + 1900) << " " 
 			<< (ltm->tm_hour) % 24 << ":" << ltm->tm_min << ":" << ltm->tm_sec << " GMT";
 		return date.str();
+	}
+
+	inline std::string to_str(int n)
+	{
+		std::ostringstream ss;
+		ss << n;
+		return ss.str();
 	}
 
 	inline std::string chuncked_transfer_encoding(std::string & body) {

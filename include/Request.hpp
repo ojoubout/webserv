@@ -3,18 +3,14 @@
 
 #include "Message.hpp"
 #include "StatusCodeException.hpp"
-#include "Socket.hpp"
 #include <algorithm>
 #include <iomanip>
-
+#include "ListingException.hpp"
+#include "Socket.hpp"
 // #include "webserv.hpp"
+// #define BUFFER_SIZE 128
 
-enum Method {
-	GET,
-	POST,
-	DELETE,
-	UNKNOWN
-};
+class Socket;
 
 class Request : public Message {
 private:

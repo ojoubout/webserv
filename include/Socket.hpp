@@ -11,13 +11,13 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <cstring>
-#include <stdlib.h>
+#include <cstdlib>
 #include <vector>
 #include <sstream>
 #include "Buffer.hpp"
-
+#include "Response.hpp"
 #define BUFFER_SIZE 128
-
+class Response;
 enum TypeSocket {BlockingSocket, NonBlockingSocket};
 
 class Socket {
@@ -48,7 +48,7 @@ public:
     // std::string receive() const;
     ssize_t recv(void *buf, size_t n) const;
 
-    void send(Buffer & buffer) const;
+    void send(Response & response) const;
     std::string getHost() const;
     in_port_t getPort() const;
 

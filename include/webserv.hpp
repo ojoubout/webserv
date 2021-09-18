@@ -1,7 +1,6 @@
 #ifndef WEBSERV_HPP
 # define WEBSERV_HPP
 
-#define SERVER_NAME "WebServer (MacOs)"
 #define CRLF "\r\n"
 #define PORT 8080
 #include <iostream>
@@ -20,19 +19,19 @@
 #include <csignal>
 
 #include <cctype>
+
 #include <set>
 #include <cstdlib>
 #include <stdexcept>
 #include <algorithm>
 
-#include "Socket.hpp"
+// #include "Socket.hpp"
 // #include "Message.hpp"
 // #include "Request.hpp"
+#include "Response.hpp"
 // #include "MimeTypes.hpp"
 #include "Config.hpp"
-#include "Response.hpp"
 // #include "Utils.hpp"
-
 typedef int sockid_t;
 extern std::vector<Config> servers;
 

@@ -11,28 +11,6 @@ void error(std::string message) {
 	return exit(EXIT_FAILURE);
 }
 
-static std::string getResponse(std::string request) {
-	
-	std::ostringstream response("");
-	std::string response_body = "<html>\n"
-					"<body>\n"
-					"<h1>Hello, World!</h1>\n"
-					"</body>\n"
-					"</html>";
-
-	
-	response	<< "HTTP/1.1 200 OK\n"
-			<< "Date: " << Utils::getDate() << "\n"
-			<< "Server: WebServer (MacOs)\n"
-			// << "Content-Length: " << response_body.length() << "\n"
-			<< "Last-Modified: Wed, 22 Jul 2009 19:15:56 GMT\n"
-			<< "Transfer-Encoding: chunked\n"
-			<< "Content-Type: text/html\n"
-			<< "Connection: Closed\n\n"
-			<< Utils::chuncked_transfer_encoding(response_body);
-	return response.str();
-}
-
 void setup_server(Config & conf) {
 	int opt = 1;
 
@@ -176,7 +154,7 @@ int main(int argc, char *argv[]) {
 						if (request->isFinished()) {
 							std::cerr << "Request Succesful" << std::endl;
 							response = new Response(*request, getConnectionServerConfig(connection.getSocket(), request));
-						}
+					}
 					} catch (const StatusCodeException & e) {
 						std::cerr << "Caught exception: " << e.getStatusCode() << " " << e.what() << std::endl;
 						response = new Response();
@@ -184,11 +162,20 @@ int main(int argc, char *argv[]) {
 						response->setServerConfig(getConnectionServerConfig(connection.getSocket(), NULL));
 
 						response->setErrorPage(e, response->getServerConfig());
+					} catch(const ListingException & e){
+						response = new Response();
+
+						std::string data = listingPage(e);
+						response->buffer_header.setData(data.c_str(), data.length());
+						// responses.insert(std::make_pair(connection.getFD(), response));
+						responses[connection.getFD()] = response;
+						fds[i].events = POLLOUT;
 					}
+
 					if (response) {
 						std::string data = response->HeadertoString();
 
-						response->buffer.setData(data.c_str(), data.length());
+						response->buffer_header.setData(data.c_str(), data.length());
 						responses.insert(std::make_pair(connection.getFD(), response));
 						requests.erase(connection.getFD());
 						delete request;
@@ -203,21 +190,29 @@ int main(int argc, char *argv[]) {
 				if (fds[i].revents & POLLOUT) {
 					
 					
-					if (response->buffer.length() == 0 && !response->getFile()->eof()) {
+					if (response->buffer_body.length() == 0 && (response->is_cgi() || !response->getFile()->eof())) {
 						response->readFile();
 					}
+					if (response->buffer_body.length() || response->buffer_header.length())
+						connection.send(*response);
+						
+					if (!response->is_cgi() && response->getFile()->eof() && response->buffer_header.length() == 0 && response->buffer_body.length() == 0) {
+						// close = true;
+						responses.erase(connection.getFD());
 
-					connection.send(response->buffer);
-
-					// if ((!response->getFile() || (response->getFile() && !(*response->getFile()))) && response->buffer.length() == 0) {
-					if (response->getFile()->eof() && response->buffer.length() == 0) {
-						close = true;
+						fds[i].events = POLLIN;
+						if (response->getHeader("Transfer-Encoding") == "chunked") {
+				        	// write(2, "0\r\n\r\n", 5);
+							send(connection.getFD(), "0\r\n\r\n", 5, 0);
+						}
 					}
 				}
 				if (fds[i].revents & POLLHUP) {
+					std::cerr << "POLLHUP " << connection.getFD() << std::endl;
 					close = true;
 				}
 				if (close) {
+					std::cerr << "Close " << connection.getFD() << std::endl;
 					connection.close();
 					fds.erase(fds.begin() + i);
 					--i;
