@@ -5,6 +5,7 @@
 #include "StatusCodeException.hpp"
 #include "Socket.hpp"
 #include <algorithm>
+#include <iomanip>
 
 // #include "webserv.hpp"
 
@@ -37,9 +38,10 @@ private:
         bool end;
     } _bparser;
     static const size_t max_size[];
-
+    static size_t file_id;
     bool parse(const char * buff, size_t size);
     size_t receiveBody(const char * buff, size_t size);
+    void openBodyFile();
 
 public:
     Request(const Socket & connection) throw (StatusCodeException);
@@ -48,6 +50,10 @@ public:
     const Method getMethod() const;
     const std::string & getRequestTarget() const;
     const std::string & getHTTPVersion() const;
+
+    bool isFinished() const;
+    void receive(const Socket & connection);
+
 
 };
 

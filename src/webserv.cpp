@@ -96,6 +96,7 @@ const Config * getConnectionServerConfig(const Socket * socket, const Request * 
 int main(int argc, char *argv[]) {
 	std::vector<pollfd> fds;
 	std::map<int, Response*> responses;
+	std::map<int, Request*> requests;
 	std::map<int, Socket> connections;
 
 	open_config_file(argc, argv);
@@ -156,19 +157,27 @@ int main(int argc, char *argv[]) {
 
 				Socket & connection = connections[fds[i].fd];
 				bool close = false;
-				Response * response;
+				Response * response = NULL;
+				Request * request = NULL;
 				// connection.setFD(fds[i].fd);
 				// connection->setState(NonBlockingSocket);
 
-				if (fds[i].revents & POLLIN) {					
+				if (fds[i].revents & POLLIN) {
 					// std::cerr << message << std::endl;
-
 					try {
-						Request request(connection); // I need to add request to epoll
-						std::cerr << "Request Succesful" << std::endl;
-						response = new Response(request, getConnectionServerConfig(connection.getSocket(), &request));
-					} catch (const StatusCodeException & e) {
+						if (requests.find(connection.getFD()) != requests.end()) {
+							request = requests.find(connection.getFD())->second;
+							request->receive(connection);
+						} else {
+							request = new Request(connection);
+							requests.insert(std::make_pair(connection.getFD(), request));
+						}
 
+						if (request->isFinished()) {
+							std::cerr << "Request Succesful" << std::endl;
+							response = new Response(*request, getConnectionServerConfig(connection.getSocket(), request));
+						}
+					} catch (const StatusCodeException & e) {
 						std::cerr << "Caught exception: " << e.getStatusCode() << " " << e.what() << std::endl;
 						response = new Response();
 
@@ -176,15 +185,20 @@ int main(int argc, char *argv[]) {
 
 						response->setErrorPage(e, response->getServerConfig());
 					}
+					if (response) {
+						std::string data = response->HeadertoString();
 
-					std::string data = response->HeadertoString();
-
-					response->buffer.setData(data.c_str(), data.length());
-					responses.insert(std::make_pair(connection.getFD(), response));
-					fds[i].events = POLLOUT;
+						response->buffer.setData(data.c_str(), data.length());
+						responses.insert(std::make_pair(connection.getFD(), response));
+						requests.erase(connection.getFD());
+						delete request;
+						fds[i].events = POLLOUT;
+					}
 				}
 
-				response = responses.find(connection.getFD())->second;
+				if (responses.find(connection.getFD()) != responses.end()) {
+					response = responses.find(connection.getFD())->second;
+				}
 
 				if (fds[i].revents & POLLOUT) {
 					

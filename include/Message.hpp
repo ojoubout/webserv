@@ -6,6 +6,8 @@
 #include <string>
 #include <map>
 #include <sstream>
+#include <fstream>
+
 // #include "webserv.hpp"
 
 class Message
@@ -13,7 +15,7 @@ class Message
 protected:
 	std::map<std::string, std::string> _headers;
 	std::iostream * _body;
-
+	bool _isBodyFile;
 public:
 	Message();
 	Message(const std::string & message);

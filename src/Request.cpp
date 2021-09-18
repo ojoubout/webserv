@@ -1,6 +1,7 @@
 #include "Request.hpp"
 
-const size_t Request::max_size[] = {6, 2 * 1024, 8, 1 * 1024, 4 * 1024, 8 * 1024};
+const size_t Request::max_size[] = {6, 2 * 1024, 8, 1 * 1024, 4 * 1024, 16 * 1024};
+size_t Request::file_id = 0;
 
 Method getMethodFromName(const std::string & method) {
     if (method == "GET") {
@@ -25,15 +26,19 @@ Request::Request(const Socket & connection) throw(StatusCodeException) {
 
 
     size_t max_request_size = 16*1024;
-    char buffer[BUFFER_SIZE + 1];
-    ssize_t bytesRead;
 
-    while ((bytesRead = connection.recv(buffer, BUFFER_SIZE)) >= 0) {
-        if (parse(buffer, bytesRead)) {
-            break;
-        }
-    }
+    receive(connection);
+
     std::cerr << "Body: " << ((std::stringstream *)_body)->str() << "|" << std::endl;
+}
+
+void Request::receive(const Socket & connection) {
+    ssize_t bytesRead;
+    char buffer[BUFFER_SIZE + 1];
+
+    bytesRead = connection.recv(buffer, BUFFER_SIZE);
+    parse(buffer, bytesRead);
+
 }
 
 static std::string & trim(std::string & str) {
@@ -87,6 +92,9 @@ bool Request::parse(const char * buff, size_t size) {
             _parser.key.clear();
         } else if (_parser.current_stat == _parser.HEADER_KEY && _parser.str.empty() && _parser.cr && buff[i] == '\n') {
             _parser.current_stat = _parser.BODY;
+            if (_headers.find("Transfer-Encoding") == _headers.end() && _headers.find("Content-Length") == _headers.end()) {
+                _bparser.end = true;
+            }
         } else if (_parser.current_stat == _parser.BODY) {
             size_t s = receiveBody(buff + i, size - i);
             i += s;
@@ -158,6 +166,11 @@ size_t Request::receiveBody(const char * buff, size_t size) {
                     _bparser.str.clear();
                     
                     _bparser.end = _bparser.len == 0;
+
+                    if (!_isBodyFile && (_bparser.len + _body->tellp()) > max_size[_parser.BODY]) {
+                        openBodyFile();
+                    }
+
                     std::cerr << "chunked size: " << _bparser.len << std::endl;
                 } else if (buff[i] != '\r') {
                     _bparser.str += buff[i];
@@ -167,19 +180,46 @@ size_t Request::receiveBody(const char * buff, size_t size) {
         }
     } else if (_headers.find("Content-Length") != _headers.end()) {
         if (isValidDecimal(_headers["Content-Length"])) {
-            _bparser.len = std::atoi(_headers["Content-Length"].c_str());
+            if (_bparser.len == -1) {
+                _bparser.len = std::atoi(_headers["Content-Length"].c_str());
+                if (_bparser.len > max_size[_parser.BODY]) {
+                    openBodyFile();
+                }
+            }
             size_t write_len = std::min((size_t)_bparser.len, size);
             _body->write(buff + i, write_len);
             _bparser.len -= write_len;
             i += write_len - 1;
             if (_bparser.len == 0) {
+                _bparser.end = true;
                 return 0;
             }
         } else {
             throw StatusCodeException(HttpStatus::BadRequest);
         }
+    } else {
+        _bparser.end = true;
     }
     return i;
+}
+
+void Request::openBodyFile() {
+    std::stringstream * body_ss = (std::stringstream *)_body;
+    std::stringstream filename;
+    filename << "/tmp/" << std::setfill('0') << std::setw(10) << file_id++;
+    std::cerr << "body filename: " << filename.str() << std::endl;
+    std::cerr << "Body: " << body_ss->str() << std::endl;
+    _body = new std::fstream(filename.str(), std::fstream::in | std::fstream::out | std::fstream::trunc);
+
+    // _body->write("Hello", 5);
+    
+    _body->write(body_ss->str().c_str(), body_ss->str().length());
+    _isBodyFile = true;
+    delete body_ss;
+}
+
+bool Request::isFinished() const {
+    return _bparser.end;
 }
 
 // Request::Request(const std::string & message) throw(StatusCodeException) : Message(message) {

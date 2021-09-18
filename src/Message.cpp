@@ -2,6 +2,7 @@
 
 Message::Message() {
     _body = new std::stringstream();
+    _isBodyFile = false;
 }
 
 // static void trim(std::string & str) {
@@ -52,6 +53,9 @@ Message::Message() {
 // }
 
 Message::~Message() {
+    if (_isBodyFile) {
+        ((std::fstream *) _body)->close();
+    }
     delete _body;
 }
 
