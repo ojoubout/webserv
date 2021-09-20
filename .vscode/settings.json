@@ -67,6 +67,10 @@
         "utility": "cpp",
         "vector": "cpp",
         "__functional_base_03": "cpp",
-        "filesystem": "cpp"
+        "filesystem": "cpp",
+        "csignal": "cpp",
+        "set": "cpp",
+        "__functional_03": "cpp",
+        "memory_resource": "cpp"
     }
 }
