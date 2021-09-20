@@ -14,7 +14,8 @@ Method getMethodFromName(const std::string & method) {
     return UNKNOWN;
 }
 
-Request::Request() {
+void Request::reset() {
+    Message::reset();
     _parser.current_stat = _parser.METHOD;
     _parser.cr = false;
 
@@ -23,15 +24,12 @@ Request::Request() {
     _bparser.end = false;
 
 }
+Request::Request() {
+    reset();
+}
 Request::Request(const Socket & connection) throw(StatusCodeException) {
 
-    _parser.current_stat = _parser.METHOD;
-    _parser.cr = false;
-
-    _bparser.len = -1;
-    _bparser.cr = false;
-    _bparser.end = false;
-
+    reset();
 
     size_t max_request_size = 16*1024;
 
@@ -45,6 +43,7 @@ void Request::receive(const Socket & connection) {
     char buffer[BUFFER_SIZE];
 
     bytesRead = connection.recv(buffer, BUFFER_SIZE);
+    write(2, buffer, bytesRead);
     parse(buffer, bytesRead);
 
 }

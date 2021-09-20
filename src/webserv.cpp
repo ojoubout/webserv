@@ -170,13 +170,13 @@ int main(int argc, char *argv[]) {
 						connection.sock.send(response);
 						
 					if (!response.is_cgi() && response.getFile()->eof() && response.buffer_header.length() == 0 && response.buffer_body.length() == 0) {
-						connection.request = Request();
-						connection.response = Response();
 						fds[i].events = POLLIN;
 						if (response.getHeader("Transfer-Encoding") == "chunked") {
 				        	// write(2, "0\r\n\r\n", 5);
 							send(connection.sock.getFD(), "0\r\n\r\n", 5, 0);
 						}
+						connection.request.reset();
+						connection.response.reset();
 					}
 				}
 				if (fds[i].revents & POLLHUP) {

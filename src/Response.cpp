@@ -22,6 +22,13 @@ Response &Response::operator=(Response const & src)
 	return (*this);
 }
 
+void Response::reset() {
+    Message::reset();
+	_is_cgi = false;
+	status = HttpStatus::StatusCode(200);
+	buffer_header.resize(0);
+	buffer_body.resize(0);
+}
 // Response::Response(Request const & req, const Config * config) 
 // {
 // }

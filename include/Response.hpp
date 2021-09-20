@@ -26,9 +26,7 @@ class Response : public Message
 {
     private:
         HttpStatus::StatusCode status;
-        std::iostream * stream;
         // struct stat fileStat;
-        std::string basePath;
         bool        _is_cgi;
         pid_t       pid;
         int         fd[2];
@@ -54,6 +52,9 @@ class Response : public Message
         void setErrorPage(const StatusCodeException & e, const Config * location);
 
         bool is_cgi() const ;
+
+        void reset();
+
 
 };
 

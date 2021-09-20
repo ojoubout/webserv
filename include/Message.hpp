@@ -35,7 +35,7 @@ public:
 	const Config * getServerConfig() const;
 
 	const Config * getLocation() const;
-
+	void reset();
 	// std::streampos getBodySize() const;
 };
 

@@ -57,6 +57,8 @@ public:
 
     bool isFinished() const;
     void receive(const Socket & connection);
+    void reset();
+
 
 
 };
