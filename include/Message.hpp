@@ -37,6 +37,8 @@ public:
 	const Config * getLocation() const;
 	void reset();
 	// std::streampos getBodySize() const;
+	void setHeader(const std::string & key, const std::string & val);
+
 };
 
 

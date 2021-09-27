@@ -67,6 +67,24 @@ public:
         }
         throw std::out_of_range("buffer out of range");
     }
+    
+    ssize_t read(char *buff, size_t size) {
+        buff = data + pos;
+        pos += size;
+        return size <= length() ? size : length();
+    }
 
+    char getc() {
+        if (pos < size) {
+            return data[pos++];
+        }
+        return -1;
+    }
+    char peekc() {
+        if (pos < size) {
+            return data[pos];
+        }
+        return -1;
+    }
 };
 

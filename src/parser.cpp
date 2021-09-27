@@ -116,7 +116,7 @@ static std::string getToken(std::ifstream & file) {
 static size_t convertSize(const std::string & str) {
     size_t len = str.length();
     std::string measures = "kmg";
-    size_t size = std::atoi(str.c_str());
+    size_t size = std::atol(str.c_str());
     char measure = std::tolower(str[len - 1]);
     if (isdigit(str[0]) && (isdigit(measure) || measures.find(measure) != std::string::npos)) {
         for (int i = 0; i < len - 1; ++i) {

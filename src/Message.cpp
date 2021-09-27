@@ -80,12 +80,18 @@ void Message::insert_header(std::string const & key, std::string const & val)
     this->_headers.insert(std::pair<std::string, std::string>(key, val));
 }
 
+void Message::setHeader(const std::string & key, const std::string & val) {
+    _headers[key] = val;
+}
+
 const Config * Message::getServerConfig() const {
 	return this->_server;
 }
 
 void Message::setServerConfig(const Config * config) {
 	this->_server = config;
+    if (!_location)
+        _location = _server;
 }
 
 const Config * Message::getLocation() const {
