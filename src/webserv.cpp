@@ -155,7 +155,7 @@ int main(int argc, char *argv[]) {
 						response.setHeader("Connection", "close");
 
 					} catch(const ListingException & e){
-						std::string data = listingPage(e);
+						std::string data = response.listingPage(e);
 						// response.setServerConfig(getConnectionServerConfig(connection.parent.getHost(), connection.parent.getPort(), ""));
 						response.buffer_header.setData(data.c_str(), data.length());
 						// fds[i].events = POLLOUT;

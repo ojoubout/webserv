@@ -49,7 +49,7 @@ Request::Request(const Socket & connection) throw(StatusCodeException) {
 }
 
 
-static std::string & trim(std::string & str) {
+std::string & trim(std::string & str) {
     int first = str.find_first_not_of(" \n\r\t");
     int last = str.find_last_not_of(" \n\r\t");
 
@@ -93,7 +93,7 @@ static const std::string getRequestedPath(const std::string & target, const Conf
 
 	std::cerr << "Requested File: " << requested_path << std::endl;
 	if (requested_path[requested_path.length() - 1] != '/' && stat(requested_path.c_str(), &buffer) == 0 && S_ISDIR(buffer.st_mode)) {
-		throw StatusCodeException(HttpStatus::MovedPermanently, path + '/');
+		throw StatusCodeException(HttpStatus::MovedPermanently, path + '/', location);
 	}
 
 	return requested_path;
@@ -118,15 +118,14 @@ static const std::string getIndexFile(const Config * location, const std::string
 }
 
 void Request::checkRequestTarget() {
-	_filename = getRequestedPath(_request_target, _server);
     _location = getLocationFromRequest(*this, _server);
+	_filename = getRequestedPath(_request_target, _location);
     struct stat fileStat;
     stat (_filename.c_str(), &fileStat);
-	Utils::fileStat(_filename, fileStat, _server);
+	Utils::fileStat(_filename, fileStat, _location);
 	if (S_ISDIR(fileStat.st_mode)) {
-		_filename = getIndexFile(_server, _filename, _request_target);
+		_filename = getIndexFile(_location, _filename, _request_target);
 	}
-    _location = getLocationFromRequest(*this, _server);
 
 }
 void Request::receive(const Socket & connection) {
@@ -394,4 +393,15 @@ const std::string & Request::getFilename() const {
 }
 Buffer & Request::getBuffer() {
     return _parser.buff;
+}
+
+std::string Request::getMethodName() const {
+    if (_method == GET)
+        return "GET";
+    else if (_method == POST)
+        return "POST";
+    else if (_method == DELETE)
+        return "DELETE";
+    else
+        return "UNKNOWN";
 }

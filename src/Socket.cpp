@@ -76,7 +76,7 @@ const sockaddr_in & Socket::getAddress() const {
 
 void Socket::close() const {
     if (_fd != -1) {
-        // std::cout << "Close Socket" << std::endl;
+        // std::cerr << "Close Socket" << std::endl;
         ::close(_fd);
     }
 }

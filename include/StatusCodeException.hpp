@@ -13,7 +13,8 @@ class StatusCodeException : public std::exception {
         const Config * _server;
     public:
         // StatusCodeException(HttpStatus::StatusCode code) : _code(code), _location("") {}
-        StatusCodeException(HttpStatus::StatusCode code, std::string const & location) : _code(code), _location(location) {}
+        StatusCodeException(HttpStatus::StatusCode code, std::string const & location, const Config * server) : 
+            _code(code), _location(location), _server(server) {}
         StatusCodeException(HttpStatus::StatusCode code, const Config * server) : _code(code), _location(""), _server(server) {}
         const char * what() const throw ()
         {

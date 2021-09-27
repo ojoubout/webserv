@@ -54,6 +54,7 @@ public:
     ~Request();
 
     const Method getMethod() const;
+    std::string getMethodName() const;
     const std::string & getRequestTarget() const;
     const std::string & getHTTPVersion() const;
     const std::string & getFilename() const;
@@ -72,6 +73,7 @@ public:
 
 Method getMethodFromName(const std::string & method);
 const std::string getPathFromUri(const std::string & uri);
+std::string & trim(std::string & str);
 
 
 #endif

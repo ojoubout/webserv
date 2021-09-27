@@ -8,12 +8,15 @@
 # include <unistd.h>
 # include <sstream>
 # include <dirent.h>
-
+# include <poll.h>
+# include <ctype.h>
 # include "Buffer.hpp"
 # include "Request.hpp"
 // # include "Socket.hpp"
+# include <algorithm>
 # include "Utils.hpp"
 # include "MimeTypes.hpp"
+# include "Config.hpp"
 // #include
 class Config;
 class Request;
@@ -30,6 +33,9 @@ class Response : public Message
         bool        _is_cgi;
         pid_t       pid;
         int         fd[2];
+        int         fd_body[2];
+        std::streamsize body_size_cgi;
+        std::streamsize sent_body;
 
         // const std::string getRequestedPath(const Request &, const Config *);
     public:
@@ -41,6 +47,7 @@ class Response : public Message
         ~Response();
         Response &operator= (Response const &);
         void handleRequest(Request const &);
+        void handleCGI(Request const &);
         void handleGetRequest(Request const &);
         void handlePostRequest(Request const &);
         void handleDeleteRequest(Request const &);
@@ -50,17 +57,14 @@ class Response : public Message
         const std::iostream * getFile() const;
         std::string getIndexFile(const Config * location, const std::string & filename, const std::string & req_taget);
         void setErrorPage(const StatusCodeException & e, const Config * location);
-
+        std::string listingPage(const ListingException & e);
         bool is_cgi() const ;
-
+        void set_cgi_body(Request & request);
         void reset();
-
-
 };
 
 std::stringstream * errorPage(const StatusCodeException & e);
 static const Config * getLocation(const Request & req, const Config * server);
 static const void handleRequest(const Request & req, const Config * location);
-std::string listingPage(const ListingException & e);
-
+void error(std::string message);
 #endif
