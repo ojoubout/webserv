@@ -1,5 +1,6 @@
 #include "Response.hpp"
 #include "debug.hpp"
+#include <algorithm>
 
 Response::Response() : _is_cgi(false), status(HttpStatus::StatusCode(200))
 {
@@ -46,6 +47,7 @@ void Response::handleRequest(Request const & req) {
 	// std::cerr << req.getFilename() << std::endl;
 
 	if (_server->location.find(Utils::getFileExtension(req.getFilename())) != _server->location.end()) {
+		_is_cgi = true;
 		if (req.isBodyFinished()) {
 			this->handleCGI(req);
 		}
@@ -61,11 +63,13 @@ void Response::handleRequest(Request const & req) {
 void Response::handleCGI(Request const & req)
 {
 	std::string filename = req.getFilename();
+	std::cerr << _location->cgi << std::endl;
 	char buff[101] = {0};
 	_is_cgi = true;
 	char * const ar[4] = {const_cast<char *>(_location->cgi.c_str()), const_cast<char *>(filename.c_str()), NULL};
 	pipe(fd);
 	pipe(fd_body);
+	body_size_cgi = req.getBody()->tellp();
 	pid = fork();
 	if (pid == 0) // child process (cgi)
 	{
@@ -82,22 +86,24 @@ void Response::handleCGI(Request const & req)
 		v.push_back(strdup((std::string("SCRIPT_FILENAME") + "=" + filename).c_str()));
 		size_t n = req.getRequestTarget().find_first_of('?') + 1;
 		n = n == std::string::npos ? req.getRequestTarget().length() : n;
-		req.getBody()->seekg(0, req.getBody()->end);
-		body_size_cgi = req.getBody()->tellg();
-		req.getBody()->seekg (0, req.getBody()->beg);
-		// v.push_back(strdup((std::string("CONTENT_LENGTH") + "=" + Utils::to_str(10)).c_str()));
+		v.push_back(strdup((std::string("CONTENT_LENGTH") + "=" + Utils::to_str(body_size_cgi)).c_str()));
+		std::cerr << "CONTENT_LENGTH : " << body_size_cgi << std::endl;
 		// std::cerr << "len : " << length << std::endl;
 		v.push_back(strdup((std::string("QUERY_STRING") + "=" + req.getRequestTarget().substr(n)).c_str()));
 		v.push_back(NULL);
 		close(fd[0]);
+		close(fd_body[1]);
 		dup2(fd[1], 1);
 		dup2(fd_body[0], 0);
+		// write(fd[1], "Hello\n", 6);
 		// TODO: check execve return; 
 		execve(ar[0], ar, const_cast<char * const *>(v.data()));
-		close(fd[1]);
 		return ;
 	}
-	dup2(fd_body[1], 1);
+	// close(fd[1]);
+	// close(fd_body[0]);
+	// dup2(fd_body[1], 1);
+	set_cgi_body(req);
 	insert_header("Date", Utils::getDate());
 	insert_header("Server", SERVER_NAME);
 	insert_header("Transfer-Encoding", "chunked");
@@ -163,13 +169,17 @@ std::string Response::HeadertoString()
 		size_t pos;
 		while (true)
 		{
+			// std::cerr << "fd: " << fd[0] << std::endl;
 			pollfd pfd = (pollfd){fd[0], POLLIN};
 			int pret = poll(&pfd, 1, -1);
 			if(pret == -1)
 				error("poll failed");
 			ret = read(fd[0], s + total, 2049 - total);
+			// std::cerr << "ret: " << ret << std::endl;
+			// if (ret <= 0)
+			// 	return "";
 			total += ret;
-			s[total] = 0;
+			// s[total] = 0;
 			if ((pos = std::string(s).find("\r\n\r\n")) != std::string::npos){
 				pos += 4;
 				break ;
@@ -393,19 +403,23 @@ bool Response::is_cgi() const
 	return this->_is_cgi;
 }
 
-void Response::set_cgi_body(Request & request)
+void Response::set_cgi_body(const Request & request)
 {
-	char buff[1001] = {0};
+	char buff[1024 * 1024] = {0};
 	close(fd_body[0]);
-	dup2(fd_body[1], 1);
+	sent_body = request.getBody()->tellg();
+	std::cerr  << "sent " << sent_body << "/" << body_size_cgi << std::endl;
 	while (sent_body < body_size_cgi){
-		std::streamsize n = request.getBody()->readsome(buff, 1000);
+		std::streampos n = std::min((std::streampos)(request.getBody()->tellp() - request.getBody()->tellg()), (std::streampos)(1024 * 1024));
+		request.getBody()->read(buff, n);
+		// std::streamsize n = 47; // request.getBody()->tellg();
 		sent_body += n;
 		std::cerr  << "sent :" << n << "=>" <<  sent_body << "/" << body_size_cgi << std::endl;
 		write(2, "***\n", 4);
-		write(1, buff, n);
+		write(fd_body[1], buff, n);
 		write(2, buff, n);
-		close(fd_body[1]);
 		write(2, "***\n", 4);
+		// break;
 	}
+	close(fd_body[1]);
 }

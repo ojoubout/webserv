@@ -126,7 +126,7 @@ void Request::checkRequestTarget() {
 	if (S_ISDIR(fileStat.st_mode)) {
 		_filename = getIndexFile(_location, _filename, _request_target);
 	}
-
+    _location = getLocationFromRequest(*this, _server);
 }
 void Request::receive(const Socket & connection) {
     ssize_t bytesRead;

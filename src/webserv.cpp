@@ -161,7 +161,7 @@ int main(int argc, char *argv[]) {
 						// fds[i].events = POLLOUT;
 					}
 
-					if (request.isHeadersFinished()) {
+					if (request.isHeadersFinished() && !response.is_cgi()) {
 						std::string data = response.HeadertoString();
 
 						response.buffer_header.setData(data.c_str(), data.length());
