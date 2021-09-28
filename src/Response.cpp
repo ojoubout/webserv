@@ -2,11 +2,11 @@
 #include "debug.hpp"
 #include <algorithm>
 
-Response::Response() : _is_cgi(false), status(HttpStatus::StatusCode(200))
+Response::Response() : _is_cgi(false), _status(HttpStatus::StatusCode(200))
 {
 }
 
-Response::Response(Response const & src) : _is_cgi(false), status(HttpStatus::StatusCode(200))
+Response::Response(Response const & src) : _is_cgi(false), _status(HttpStatus::StatusCode(200))
 {
 	*this = src;
 }
@@ -17,7 +17,7 @@ Response &Response::operator=(Response const & src)
 {
 	buffer_header = src.buffer_header;
 	buffer_body = src.buffer_body;
-	status = src.status;
+	_status = src._status;
 	_server = src._server;
 	_is_cgi = src._is_cgi;
 	return (*this);
@@ -26,7 +26,7 @@ Response &Response::operator=(Response const & src)
 void Response::reset() {
     Message::reset();
 	_is_cgi = false;
-	status = HttpStatus::StatusCode(200);
+	_status = HttpStatus::StatusCode(200);
 	buffer_header.resize(0);
 	buffer_body.resize(0);
 }
@@ -69,7 +69,8 @@ void Response::handleCGI(Request const & req)
 	char * const ar[4] = {const_cast<char *>(_location->cgi.c_str()), const_cast<char *>(filename.c_str()), NULL};
 	pipe(fd);
 	pipe(fd_body);
-	body_size_cgi = req.getBody()->tellp();
+	// req.setBodySize(req.getBody()->tellp());
+	
 	pid = fork();
 	if (pid == 0) // child process (cgi)
 	{
@@ -86,10 +87,12 @@ void Response::handleCGI(Request const & req)
 		v.push_back(strdup((std::string("SCRIPT_FILENAME") + "=" + filename).c_str()));
 		size_t n = req.getRequestTarget().find_first_of('?') + 1;
 		n = n == std::string::npos ? req.getRequestTarget().length() : n;
-		v.push_back(strdup((std::string("CONTENT_LENGTH") + "=" + Utils::to_str(body_size_cgi)).c_str()));
-		std::cerr << "CONTENT_LENGTH : " << body_size_cgi << std::endl;
+		v.push_back(strdup((std::string("CONTENT_LENGTH") + "=" + Utils::to_str(req.getBodySize())).c_str()));
+		std::cerr << "CONTENT_LENGTH : " << req.getBodySize() << std::endl;
+		v.push_back(strdup((std::string("CONTENT_TYPE") + "=" + req.getHeader("Content-Type")).c_str()));
 		// std::cerr << "len : " << length << std::endl;
 		v.push_back(strdup((std::string("QUERY_STRING") + "=" + req.getRequestTarget().substr(n)).c_str()));
+		v.push_back(strdup((std::string("REDIRECT_STATUS") + "=").c_str()));
 		v.push_back(NULL);
 		close(fd[0]);
 		close(fd_body[1]);
@@ -103,6 +106,8 @@ void Response::handleCGI(Request const & req)
 	// close(fd[1]);
 	// close(fd_body[0]);
 	// dup2(fd_body[1], 1);
+	req.getBody()->seekg(0, req.getBody()->beg);
+	// req.getBody()->seekp(0, req.getBody()->end);
 	set_cgi_body(req);
 	insert_header("Date", Utils::getDate());
 	insert_header("Server", SERVER_NAME);
@@ -120,7 +125,7 @@ void Response::handleGetRequest(Request const & req)
 	struct stat fileStat;
 
 	std::fstream * file = new std::fstream();
-	file->open(filename);
+	file->open(filename.c_str());
 		delete _body;
 		_body = file;
 	stat (filename.c_str(), &fileStat);
@@ -207,7 +212,8 @@ std::string Response::HeadertoString()
 			_headers[line.substr(0, start)] = trim(str);
 		}
 	}
-	response << "HTTP/1.1 " << this->status << " " << reasonPhrase(this->status) << CRLF;
+	response << "HTTP/1.1 " << this->_status << " " << reasonPhrase(this->_status) << CRLF;
+	std::cerr << response.str() << std::endl;
 	for (std::map<std::string, std::string>::iterator it = _headers.begin(); it != _headers.end(); ++it)
 	{
 		response << it->first << ": " << it->second << CRLF;
@@ -288,7 +294,7 @@ std::stringstream * errorTemplate(const StatusCodeException & e) {
 
 
 void Response::setErrorPage(const StatusCodeException & e, const Config * location) {
-	status = e.getStatusCode();
+	_status = e.getStatusCode();
 
 	_headers["Connection"] = "keep-alive";
 	_headers["Content-Type"] = "text/html";
@@ -306,11 +312,11 @@ void Response::setErrorPage(const StatusCodeException & e, const Config * locati
 
 	std::fstream * errPage = NULL;
 
-	if (error_page.find(status) != error_page.end()) {
+	if (error_page.find(_status) != error_page.end()) {
 		errPage = new std::fstream();
 		std::string filename = location->root;
 
-		filename += error_page.find(status)->second;
+		filename += error_page.find(_status)->second;
 		errPage->open(filename.c_str());
 	}
 
@@ -405,16 +411,16 @@ bool Response::is_cgi() const
 
 void Response::set_cgi_body(const Request & request)
 {
-	char buff[1024 * 1024] = {0};
+	char buff[BUFFER_SIZE] = {0};
 	close(fd_body[0]);
 	sent_body = request.getBody()->tellg();
-	std::cerr  << "sent " << sent_body << "/" << body_size_cgi << std::endl;
-	while (sent_body < body_size_cgi){
-		std::streampos n = std::min((std::streampos)(request.getBody()->tellp() - request.getBody()->tellg()), (std::streampos)(1024 * 1024));
+	std::cerr  << "sent " << sent_body << "/" << request.getBodySize() << std::endl;
+	while (sent_body < request.getBodySize()){
+		std::streampos n = std::min((std::streampos)(request.getBodySize() - request.getBody()->tellg()), (std::streampos)(BUFFER_SIZE));
 		request.getBody()->read(buff, n);
 		// std::streamsize n = 47; // request.getBody()->tellg();
 		sent_body += n;
-		std::cerr  << "sent :" << n << "=>" <<  sent_body << "/" << body_size_cgi << std::endl;
+		std::cerr  << "sent :" << n << "=>" <<  sent_body << "/" << request.getBodySize() << std::endl;
 		write(2, "***\n", 4);
 		write(fd_body[1], buff, n);
 		write(2, buff, n);
@@ -422,4 +428,9 @@ void Response::set_cgi_body(const Request & request)
 		// break;
 	}
 	close(fd_body[1]);
+}
+
+
+HttpStatus::StatusCode Response::getStatusCode() const {
+	return _status;
 }

@@ -134,7 +134,7 @@ int main(int argc, char *argv[]) {
 					try {
 						request.setServerConfig(getConnectionServerConfig(connection.parent.getHost(), connection.parent.getPort(), ""));
 						request.receive(connection.sock);
-						std::cout << "Reading" << std::endl;
+						std::cout << "Reading " << std::endl;
 						if (request.isHeadersFinished()) {
 							std::cerr << "Request Succesful" << std::endl;
 							
@@ -161,9 +161,9 @@ int main(int argc, char *argv[]) {
 						// fds[i].events = POLLOUT;
 					}
 
-					if (request.isHeadersFinished() && !response.is_cgi()) {
+					if (request.isHeadersFinished() && (!response.is_cgi() || request.isBodyFinished())) {
 						std::string data = response.HeadertoString();
-
+						// std::cerr << "Response: " << response.getStatusCode() <<  << std::endl;
 						response.buffer_header.setData(data.c_str(), data.length());
 						fds[i].events = POLLOUT;
 						if (!request.isBodyFinished()) {

@@ -34,6 +34,7 @@ protected:
 
 	std::map<std::string, std::string, ci_less> _headers;
 	std::iostream * _body;
+	size_t		_body_size;
 	bool _isBodyFile;
 
 	const Config * _server;
@@ -47,6 +48,8 @@ public:
 	const std::string getHeader(const std::string & key) const;
 	std::iostream * getBody() const; 
 	void insert_header(std::string const & key, std::string const & val);
+	size_t getBodySize() const; 
+	void setBodySize(size_t size); 
 
 	void setServerConfig(const Config * config);
 	const Config * getServerConfig() const;

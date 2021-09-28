@@ -2,6 +2,7 @@
 
 Message::Message() {
     _body = NULL;
+    _body_size = 0;
     reset();
 }
 
@@ -107,4 +108,13 @@ void Message::reset() {
 
 	_server = NULL;
 	_location = NULL;
+}
+
+
+size_t Message::getBodySize() const {
+    return _body_size;
+}
+
+void Message::setBodySize(size_t size) {
+    _body_size = size;
 }

@@ -28,7 +28,7 @@ class Socket;
 class Response : public Message
 {
     private:
-        HttpStatus::StatusCode status;
+        HttpStatus::StatusCode _status;
         // struct stat fileStat;
         bool        _is_cgi;
         pid_t       pid;
@@ -52,6 +52,7 @@ class Response : public Message
         void handlePostRequest(Request const &);
         void handleDeleteRequest(Request const &);
         std::string HeadertoString();
+        HttpStatus::StatusCode getStatusCode() const;
         void    send_file(Socket & connection);
         void    readFile();
         const std::iostream * getFile() const;

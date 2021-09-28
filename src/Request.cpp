@@ -135,11 +135,18 @@ void Request::receive(const Socket & connection) {
     if (_parser.buff.length() == 0) {
         _parser.buff.resize(BUFFER_SIZE);
         bytesRead = connection.recv(buffer, BUFFER_SIZE);
+        if (bytesRead == 0) {
+            _parser.end = false;
+            // _bparser.end = true;
+            return;
+        }
         _parser.buff.setData(buffer, bytesRead);
         // write(2, buffer, bytesRead);
     }
     parse();
-
+    if (_bparser.end) {
+        _body_size = _body->tellp();
+    }
 }
 
 bool Request::parse() {
@@ -193,6 +200,7 @@ bool Request::parse() {
             }
             checkRequestTarget();
             _parser.end = true;
+
         } else if ((_parser.current_stat == _parser.HEADER_KEY && (c == ':' || end))) {
             _parser.key = trim(_parser.str);
             _parser.current_stat = _parser.HEADER_VALUE;
@@ -203,13 +211,7 @@ bool Request::parse() {
             }
             _parser.current_stat = _parser.HEADER_KEY;
             _parser.key.clear();
-        } else if (_parser.current_stat == _parser.BODY) {
-            receiveBody();
-            // i += s;
-            // if (s == 0) {
-            break;
-            // }
-        } else {
+        }else {
             if (c == '\r')
                 _parser.cr = true;
             else {
@@ -218,6 +220,13 @@ bool Request::parse() {
             }
             continue;
         }
+        if (_parser.current_stat == _parser.BODY) {
+            receiveBody();
+            // i += s;
+            // if (s == 0) {
+            break;
+            // }
+        } 
         _parser.cr = false;
         _parser.str.clear();
     }
