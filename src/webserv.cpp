@@ -144,6 +144,12 @@ int main(int argc, char *argv[]) {
 						// if (request.isBodyFinished()) {
 							// response.cgi_read(request);
 						// }
+						// std::cerr << std::boolalpha << response.is_cgi() << " " << !response.isSendingBodyFinished(request) <<
+						// " " << request.getBodySize() <<  std::endl;
+						if (response.is_cgi() && !response.isSendingBodyFinished(request))
+						{
+							response.set_cgi_body(request);
+						}
 					} catch (const StatusCodeException & e) {
 						std::cerr << "Caught exception: " << e.getStatusCode() << " " << e.what() << std::endl;
 

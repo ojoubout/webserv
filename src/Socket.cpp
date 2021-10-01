@@ -116,7 +116,7 @@ void Socket::send(Response & res) const {
             std::stringstream ss;
             ss << std::hex << buffer->length() << CRLF;
             std::cerr << "sent: " << ss.str() << std::endl;
-            // write(2, ss.str().c_str(), ss.str().length());
+            write(2, ss.str().c_str(), ss.str().length());
             ::send(_fd, ss.str().c_str(), ss.str().length(), 0);
         }
     }
@@ -128,7 +128,7 @@ void Socket::send(Response & res) const {
         buffer->pos += bytes;
     }
 
-    if (res.buffer_body.length() == 0) {
+    if (res.buffer_body.length() == 0 && res.buffer_body.size != 0) {
         // write(2, "\r\n", 2);
         ::send(_fd, "\r\n", 2, 0);
     }

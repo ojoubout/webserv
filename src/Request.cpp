@@ -135,13 +135,15 @@ void Request::receive(const Socket & connection) {
     if (_parser.buff.length() == 0) {
         _parser.buff.resize(BUFFER_SIZE);
         bytesRead = connection.recv(buffer, BUFFER_SIZE);
-        if (bytesRead == 0) {
+        if (bytesRead == 0 || bytesRead == -1) {
             _parser.end = false;
             // _bparser.end = true;
             return;
         }
+        std::cerr << "bytesRead: " << bytesRead << std::endl;
+        perror("hello");
         _parser.buff.setData(buffer, bytesRead);
-        // write(2, buffer, bytesRead);
+        write(2, buffer, bytesRead);
     }
     parse();
     if (_bparser.end) {

@@ -60,6 +60,7 @@ class Response : public Message
         void setErrorPage(const StatusCodeException & e, const Config * location);
         std::string listingPage(const ListingException & e);
         bool is_cgi() const ;
+        bool isSendingBodyFinished(const Request & request) const;
         void set_cgi_body(const Request & request);
         void reset();
 };
