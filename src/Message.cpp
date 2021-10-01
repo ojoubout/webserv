@@ -60,7 +60,7 @@ Message::~Message() {
     delete _body;
 }
 
-const std::map<std::string, std::string, ci_less> & Message::getHeader() const {
+std::map<std::string, std::string, ci_less> & Message::getHeaders() {
     return this->_headers;
 }
 

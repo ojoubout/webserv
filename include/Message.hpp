@@ -44,7 +44,7 @@ public:
 	Message();
 	Message(const std::string & message);
 	~Message();
-	const std::map<std::string, std::string, ci_less> & getHeader() const;
+	std::map<std::string, std::string, ci_less> & getHeaders();
 	const std::string getHeader(const std::string & key) const;
 	std::iostream * getBody() const; 
 	void insert_header(std::string const & key, std::string const & val);

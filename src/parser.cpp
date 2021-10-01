@@ -207,7 +207,7 @@ static void parse(std::ifstream & file) {
                 } else if (std::find(config->methods.begin(), config->methods.end(), method) != config->methods.end()) {
                     error(DUPLICATE_METHOD, directive[i]);
                 }
-                config->methods.push_back(method);
+                config->methods.insert(method);
             }
         } else if (directive[0] == "index" && directive.size() > 2) {
             config->index.clear();

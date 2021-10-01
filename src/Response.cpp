@@ -44,7 +44,7 @@ void Response::handleRequest(Request const & req) {
 
 	// const std::string request_path = getRequestedPath(req, location);
 
-	// std::cerr <<  "****" << req.getRequestTarget() << std::endl; 
+	// std::cerr <<  "****" << req.getRequestTarget() << std::endl;
 	// std::cerr << _location->root << std::endl;
 	// std::cerr << req.getFilename() << std::endl;
 
@@ -125,8 +125,8 @@ void Response::handleGetRequest(Request const & req)
 
 	std::fstream * file = new std::fstream();
 	file->open(filename.c_str());
-	delete _body;
-	_body = file;
+		delete _body;
+		_body = file;
 	stat (filename.c_str(), &fileStat);
 	insert_header("Date", Utils::getDate());
 	insert_header("Server", SERVER_NAME);
@@ -157,8 +157,76 @@ void Response::handlePostRequest(Request const & req)
 	insert_header("Accept-Ranges", "bytes");
 }
 
+static void deleteDirectoryFiles(DIR * dir) {
+	struct dirent * entry = NULL;
+	struct stat st;
+	
+	while ((entry = readdir(dir))) {
+		if (std::strcmp(entry->d_name, ".") == 0 || std::strcmp(entry->d_name, "..") == 0) {
+			continue;
+		}
+		if (stat(entry->d_name, &st) == -1) {
+			std::cerr << "stat(): " << entry->d_name << ": " << strerror(errno) << std::endl;
+		}
+
+		if (S_ISDIR(st.st_mode)) {
+			if ((dir = opendir(entry->d_name))) {
+				deleteDirectoryFiles(dir);
+				remove(entry->d_name);
+			} else {
+				std::cerr << "opendir(): " << entry->d_name << ": " << strerror(errno) << std::endl;
+			}
+		} else {
+			if (remove(entry->d_name) == -1) {
+				std::cerr << "remove(): " << entry->d_name << ": " << strerror(errno) << std::endl;
+			}
+		}
+	}
+}
+
 void Response::handleDeleteRequest(Request const & req)
 {
+	struct stat st;
+	DIR * dirp = NULL;
+
+	errno = 0;
+	if (lstat(req.getFilename().c_str(), &st) == -1) {
+		if (errno == ENOTDIR) {
+			throw StatusCodeException(HttpStatus::Conflict, _location);
+		} else {
+			throw StatusCodeException(HttpStatus::NotFound, _location);
+		}
+	}
+
+	if (S_ISDIR(st.st_mode)) {
+		if (req.getRequestTarget().at(req.getRequestTarget().length() - 1) != '/') {
+			throw StatusCodeException(HttpStatus::Conflict, _location);
+		} else {
+			if ((dirp = opendir(req.getFilename().c_str()))) {
+				deleteDirectoryFiles(dirp);
+				remove(req.getFilename().c_str());
+			}
+		}
+	} else {
+		remove(req.getFilename().c_str());
+	}
+
+	if (errno) {
+		perror("");
+	}
+	if (errno == ENOENT || errno == ENOTDIR || errno == ENAMETOOLONG) {
+		throw StatusCodeException(HttpStatus::NotFound, _location);
+    } else if (errno == EACCES || errno == EPERM) {
+		throw StatusCodeException(HttpStatus::Forbidden, _location);
+    } else if (errno == EEXIST) {
+		throw StatusCodeException(HttpStatus::MethodNotAllowed, _location);
+    } else if (errno == ENOSPC) {
+		throw StatusCodeException(HttpStatus::InsufficientStorage, _location);
+    } else if (errno) {
+		throw StatusCodeException(HttpStatus::InternalServerError, _location);
+    } else {
+		throw StatusCodeException(HttpStatus::NoContent, _location);
+	}
 
 }
 
@@ -177,9 +245,7 @@ std::string Response::HeadertoString()
 		{
 			// std::cerr << "fd: " << fd[0] << std::endl;
 			pollfd pfd = (pollfd){fd[0], POLLIN};
-			std::cerr << "Before" << std::endl;
 			int pret = poll(&pfd, 1, -1);
-			std::cerr << "After" << std::endl;
 			if(pret == -1)
 				error("poll failed");
 			ret = read(fd[0], s + total, 2049 - total);
@@ -279,16 +345,18 @@ std::stringstream * errorTemplate(const StatusCodeException & e) {
 	std::stringstream * alloc = new std::stringstream("");
 	std::stringstream & body = *alloc;
 
-	body << "<!DOCTYPE html>\n" ;
-	body << "<html lang=\"en\">\n";
-	body << "<head>\n";
-    body << "<title>" << e.getStatusCode() << "</title>\n";
-	body << "</head>\n";
-	body << "<body>\n";
-    body << "<h1 style=\"text-align:center\">" << e.getStatusCode() << " - " << HttpStatus::reasonPhrase(e.getStatusCode()) << "</h1>\n";
-	body << "<hr>\n";
-	body << "<h4 style=\"text-align:center\">WebServer</h4>\n";
-	body << "</body>\n";
+	if (e.getStatusCode() >= 400) {
+		body << "<!DOCTYPE html>\n" ;
+		body << "<html lang=\"en\">\n";
+		body << "<head>\n";
+		body << "<title>" << e.getStatusCode() << "</title>\n";
+		body << "</head>\n";
+		body << "<body>\n";
+		body << "<h1 style=\"text-align:center\">" << e.getStatusCode() << " - " << HttpStatus::reasonPhrase(e.getStatusCode()) << "</h1>\n";
+		body << "<hr>\n";
+		body << "<h4 style=\"text-align:center\">WebServer</h4>\n";
+		body << "</body>\n";
+	}
 
 	return &body;
 }
@@ -430,7 +498,7 @@ void Response::set_cgi_body(const Request & request)
 		std::cerr  << "sent :" << n << "=>" <<  sent_body << "/" << request.getBodySize() << std::endl;
 		write(fd_body[1], buff, n);
 		if (isSendingBodyFinished(request)) {
-			close(fd_body[1]);
+	close(fd_body[1]);
 		}
 	// }
 	// close(fd_body[1]);

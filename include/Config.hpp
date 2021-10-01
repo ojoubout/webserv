@@ -33,7 +33,7 @@ public:
 
     std::map<std::string, Config> location;
 
-    std::vector<Method> methods;
+    std::set<Method> methods;
     std::string root;
     std::pair<HttpStatus::StatusCode, std::string> redirect;
     bool listing;

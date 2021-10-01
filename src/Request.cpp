@@ -128,6 +128,7 @@ void Request::checkRequestTarget() {
 	}
     _location = getLocationFromRequest(*this, _server);
 }
+
 void Request::receive(const Socket & connection) {
     ssize_t bytesRead;
     char buffer[BUFFER_SIZE];
@@ -140,10 +141,8 @@ void Request::receive(const Socket & connection) {
             // _bparser.end = true;
             return;
         }
-        std::cerr << "bytesRead: " << bytesRead << std::endl;
-        perror("hello");
         _parser.buff.setData(buffer, bytesRead);
-        write(2, buffer, bytesRead);
+        // write(2, buffer, bytesRead);
     }
     parse();
     if (_bparser.end) {
@@ -201,6 +200,9 @@ bool Request::parse() {
                 throw StatusCodeException(HttpStatus::BadRequest, _server);
             }
             checkRequestTarget();
+            if (_location->methods.find(_method) == _location->methods.end()) {
+                throw StatusCodeException(HttpStatus::MethodNotAllowed, _server);
+            }
             _parser.end = true;
 
         } else if ((_parser.current_stat == _parser.HEADER_KEY && (c == ':' || end))) {
