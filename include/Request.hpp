@@ -41,6 +41,8 @@ private:
 
     std::string _filename;
 
+    bool _upload;
+
     bool parse();
     size_t receiveBody();
     void openBodyFile();

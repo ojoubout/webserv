@@ -31,7 +31,7 @@ void Request::reset() {
     _request_target = "";
     _http_version = "";
 
-
+    _upload = false;
 
 }
 Request::Request() {
@@ -45,7 +45,7 @@ Request::Request(const Socket & connection) throw(StatusCodeException) {
 
     receive(connection);
 
-    std::cerr << "Body: " << ((std::stringstream *)_body)->str() << "|" << std::endl;
+    debug << "Body: " << ((std::stringstream *)_body)->str() << "|" << std::endl;
 }
 
 
@@ -82,17 +82,17 @@ const std::string getPathFromUri(const std::string & uri) {
 	return uri.substr(0, uri.find_first_of('?'));
 }
 
-static const std::string getRequestedPath(const std::string & target, const Config * location) {
+static const std::string getRequestedPath(const std::string & target, const Config * location, Method method) {
 	const std::string path = getPathFromUri(target);
 	struct stat buffer;
 
 	std::string requested_path = location->root;
 
 	requested_path += location->uri != "" ? path.substr(location->uri.length()) : path;
-	// dout << "SUBSTR: " << location->uri << " " << location->uri.length() << " " << path.substr(location->uri.length()) << std::endl;
+	// debug << "SUBSTR: " << location->uri << " " << location->uri.length() << " " << path.substr(location->uri.length()) << std::endl;
 
-	std::cerr << "Requested File: " << requested_path << std::endl;
-	if (requested_path[requested_path.length() - 1] != '/' && stat(requested_path.c_str(), &buffer) == 0 && S_ISDIR(buffer.st_mode)) {
+	debug << "Requested File: " << requested_path << std::endl;
+	if (requested_path[requested_path.length() - 1] != '/' && stat(requested_path.c_str(), &buffer) == 0 && S_ISDIR(buffer.st_mode) && method != DELETE) {
 		throw StatusCodeException(HttpStatus::MovedPermanently, path + '/', location);
 	}
 
@@ -119,11 +119,11 @@ static const std::string getIndexFile(const Config * location, const std::string
 
 void Request::checkRequestTarget() {
     _location = getLocationFromRequest(*this, _server);
-	_filename = getRequestedPath(_request_target, _location);
+	_filename = getRequestedPath(_request_target, _location, _method);
     struct stat fileStat;
     stat (_filename.c_str(), &fileStat);
 	Utils::fileStat(_filename, fileStat, _location);
-	if (S_ISDIR(fileStat.st_mode)) {
+	if (S_ISDIR(fileStat.st_mode) && _method != DELETE && !_location->upload) {
 		_filename = getIndexFile(_location, _filename, _request_target);
 	}
     _location = getLocationFromRequest(*this, _server);
@@ -161,7 +161,7 @@ bool Request::parse() {
         if (_parser.current_stat != _parser.BODY)
             c = _parser.buff.getc();
         if (_parser.cr && c == '\n') {
-            if (_parser.current_stat != _parser.HTTP_VER && _parser.current_stat != _parser.HEADER_KEY && _parser.current_stat != _parser.HEADER_VALUE) {
+            if (_parser.current_stat != _parser.HTTP_VER && _parser.current_stat != _parser.HEADER_KEY && _parser.current_stat != _parser.HEADER_VALUE && _parser.current_stat != _parser.BODY) {
                 throw StatusCodeException(HttpStatus::BadRequest, _server);
             }
             if (_parser.current_stat == _parser.HEADER_KEY) {
@@ -196,15 +196,17 @@ bool Request::parse() {
             if (_headers.find("Transfer-Encoding") == _headers.end() && _headers.find("Content-Length") == _headers.end()) {
                 _bparser.end = true;
             }
-            if (_headers.find("Host") == _headers.end()) {
+                if (_headers.find("Host") == _headers.end()) {
                 throw StatusCodeException(HttpStatus::BadRequest, _server);
             }
             checkRequestTarget();
             if (_location->methods.find(_method) == _location->methods.end()) {
-                throw StatusCodeException(HttpStatus::MethodNotAllowed, _server);
+                throw StatusCodeException(HttpStatus::MethodNotAllowed, _location);
             }
             _parser.end = true;
-
+            if (_location->upload) {
+                throw StatusCodeException(HttpStatus::Created, _location);
+            }
         } else if ((_parser.current_stat == _parser.HEADER_KEY && (c == ':' || end))) {
             _parser.key = trim(_parser.str);
             _parser.current_stat = _parser.HEADER_VALUE;
@@ -215,7 +217,7 @@ bool Request::parse() {
             }
             _parser.current_stat = _parser.HEADER_KEY;
             _parser.key.clear();
-        }else {
+        } else if (_parser.current_stat != _parser.BODY) {
             if (c == '\r')
                 _parser.cr = true;
             else {
@@ -294,11 +296,11 @@ size_t Request::receiveBody() {
                         if (_bparser.len + _body->tellp() > _location->max_body_size) {
                             throw StatusCodeException(HttpStatus::PayloadTooLarge, _location);
                         }
-                        if (!_isBodyFile && (_bparser.len + _body->tellp()) > max_size[_parser.BODY]) {
+                        if ((_location->upload && _method == POST) || (!_isBodyFile && (_bparser.len + _body->tellp()) > max_size[_parser.BODY])) {
                             openBodyFile();
                         }
 
-                        std::cerr << "chunked size: " << _bparser.len << std::endl;
+                        debug << "chunked size: " << _bparser.len << std::endl;
                     } else if (c != '\r') {
                         _bparser.str += c;
                     }
@@ -313,7 +315,7 @@ size_t Request::receiveBody() {
                 if (_bparser.len > _location->max_body_size) {
                     throw StatusCodeException(HttpStatus::PayloadTooLarge, _location);
                 }
-                if (_bparser.len > max_size[_parser.BODY]) {
+                if ((_location->upload && _method == POST) || _bparser.len > max_size[_parser.BODY]) {
                     openBodyFile();
                 }
             }
@@ -338,12 +340,32 @@ size_t Request::receiveBody() {
 void Request::openBodyFile() {
     std::stringstream * body_ss = (std::stringstream *)_body;
     std::stringstream filename;
-    filename << "/tmp/" << std::setfill('0') << std::setw(10) << file_id++;
-    std::cerr << "body filename: " << filename.str() << std::endl;
-    std::cerr << "Body: " << body_ss->str() << std::endl;
+
+    if (_location->upload && _method == POST) {
+        filename << _filename;
+        _upload = true;
+    } else {
+        filename << "/tmp/" << std::setfill('0') << std::setw(10) << file_id++;
+    }
+
+    debug << "body filename: " << filename.str() << std::endl;
+    debug << "Body: " << body_ss->str() << std::endl;
+
     _body = new std::fstream(filename.str().c_str(), std::fstream::in | std::fstream::out | std::fstream::trunc);
-    // _body->write("Hello", 5);
-    
+
+    if (_body->fail()) {
+        perror("fstream()");
+        if (errno == EACCES || errno == EPERM) {
+            throw StatusCodeException(HttpStatus::Forbidden, _location);
+        } else if (errno == ENOENT || errno == EISDIR || errno == ENAMETOOLONG || errno == EFAULT) {
+            throw StatusCodeException(HttpStatus::NotFound, _location);
+        } else if (errno == ENOTDIR) {
+            throw StatusCodeException(HttpStatus::Conflict, _location);
+        } else {
+            throw StatusCodeException(HttpStatus::InternalServerError, _location);
+        }
+    }
+
     _body->write(body_ss->str().c_str(), body_ss->str().length());
     _isBodyFile = true;
     delete body_ss;

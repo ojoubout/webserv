@@ -38,7 +38,7 @@ public:
     }
 
     void resize(size_t new_size) {
-        // std::cerr << "size: " << new_size << std::endl;
+        // debug << "size: " << new_size << std::endl;
         if (size == new_size) {
             pos = 0;
             return ;   

@@ -13,7 +13,7 @@
 #define STATUS_CODE_HPP
 
 #include <string>
-
+#include "debug.hpp"
 /*! Namespace for HTTP status codes and reason phrases.
  */
 
@@ -31,6 +31,7 @@ namespace HttpStatus
  */
 enum StatusCode
 {
+	None			   = 0,
 	/*####### 1xx - Informational #######*/
 	/* Indicates an interim response for communicating connection status
 	 * or request progress prior to completing the requested action and

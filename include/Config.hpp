@@ -17,6 +17,7 @@
 #include <unistd.h>
 #include <algorithm>
 // #include "Socket.hpp"
+
 class Socket;
 
 class Config {
@@ -39,7 +40,7 @@ public:
     bool listing;
     std::vector<std::string> index;
     std::string cgi;
-    std::string upload;
+    bool upload;
 
     Socket *socket;
     std::string uri;

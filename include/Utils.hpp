@@ -82,7 +82,7 @@ namespace Utils {
 	{
 		// struct stat buffer;   
 		// stat (filename.c_str(), &buffer);
-		if (access( filename.c_str(), F_OK)){
+		if (access( filename.c_str(), F_OK) && !server->upload){
 			throw StatusCodeException(HttpStatus::NotFound, server);
 		}
 		if (!(buffer.st_mode & S_IROTH))
@@ -150,7 +150,7 @@ namespace Utils {
 		int pos = findNthOccur(str, '/', 3);
 		if (pos == -1)
 			return ("");
-		std::cerr << pos << std::endl;
+		debug << pos << std::endl;
 		return str.substr(pos);
 	}
 }

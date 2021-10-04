@@ -1,5 +1,4 @@
 #include "Response.hpp"
-#include "debug.hpp"
 #include <algorithm>
 
 Response::Response() : _is_cgi(false), _status(HttpStatus::StatusCode(200)), sent_body(0)
@@ -44,10 +43,16 @@ void Response::handleRequest(Request const & req) {
 
 	// const std::string request_path = getRequestedPath(req, location);
 
-	// std::cerr <<  "****" << req.getRequestTarget() << std::endl;
-	// std::cerr << _location->root << std::endl;
-	// std::cerr << req.getFilename() << std::endl;
-
+	// debug <<  "****" << req.getRequestTarget() << std::endl;
+	// debug << _location->root << std::endl;
+	// debug << req.getFilename() << std::endl;
+	if (_location->redirect.first != HttpStatus::None) {
+		if (HttpStatus::isRedirection(_location->redirect.first)) {
+			throw StatusCodeException(_location->redirect.first, _location->redirect.second, _location);
+		} else {
+			throw StatusCodeException(_location->redirect.first, _location);
+		}
+	}
 	if (_server->location.find(Utils::getFileExtension(req.getFilename())) != _server->location.end()) {
 		_is_cgi = true;
 		if (req.isBodyFinished()) {
@@ -65,7 +70,7 @@ void Response::handleRequest(Request const & req) {
 void Response::handleCGI(Request const & req)
 {
 	std::string filename = req.getFilename();
-	std::cerr << _location->cgi << std::endl;
+	debug << _location->cgi << std::endl;
 	char buff[101] = {0};
 	_is_cgi = true;
 	char * const ar[4] = {const_cast<char *>(_location->cgi.c_str()), const_cast<char *>(filename.c_str()), NULL};
@@ -89,11 +94,12 @@ void Response::handleCGI(Request const & req)
 		size_t n = req.getRequestTarget().find_first_of('?') + 1;
 		n = n == std::string::npos ? req.getRequestTarget().length() : n;
 		v.push_back(strdup((std::string("CONTENT_LENGTH") + "=" + Utils::to_str(req.getBodySize())).c_str()));
-		// std::cerr << "CONTENT_LENGTH : " << req.getBodySize() << " " << req.getBody()->tellg() << std::endl;
+		// debug << "CONTENT_LENGTH : " << req.getBodySize() << " " << req.getBody()->tellg() << std::endl;
 		v.push_back(strdup((std::string("CONTENT_TYPE") + "=" + req.getHeader("Content-Type")).c_str()));
-		// std::cerr << "len : " << length << std::endl;
+		// debug << "len : " << length << std::endl;
 		v.push_back(strdup((std::string("QUERY_STRING") + "=" + req.getRequestTarget().substr(n)).c_str()));
 		v.push_back(strdup((std::string("REDIRECT_STATUS") + "=").c_str()));
+		v.push_back(strdup((std::string("HTTP_COOKIE") + "=" + req.getHeader("Cookie")).c_str()));
 		v.push_back(NULL);
 		close(fd[0]);
 		close(fd_body[1]);
@@ -157,31 +163,41 @@ void Response::handlePostRequest(Request const & req)
 	insert_header("Accept-Ranges", "bytes");
 }
 
-static void deleteDirectoryFiles(DIR * dir) {
+static void deleteDirectoryFiles(DIR * dir, const std::string & path) {
 	struct dirent * entry = NULL;
 	struct stat st;
+	std::string filepath;
+	DIR * dirp;
 	
 	while ((entry = readdir(dir))) {
+
+		filepath = path + entry->d_name;
+
 		if (std::strcmp(entry->d_name, ".") == 0 || std::strcmp(entry->d_name, "..") == 0) {
 			continue;
 		}
-		if (stat(entry->d_name, &st) == -1) {
-			std::cerr << "stat(): " << entry->d_name << ": " << strerror(errno) << std::endl;
+
+		if (stat(filepath.c_str(), &st) == -1) {
+			debug << "stat(): " << filepath << ": " << strerror(errno) << std::endl;
 		}
 
 		if (S_ISDIR(st.st_mode)) {
-			if ((dir = opendir(entry->d_name))) {
-				deleteDirectoryFiles(dir);
-				remove(entry->d_name);
+			filepath += "/";
+			if ((dirp = opendir(filepath.c_str()))) {
+				deleteDirectoryFiles(dirp, filepath.c_str());
 			} else {
-				std::cerr << "opendir(): " << entry->d_name << ": " << strerror(errno) << std::endl;
+				debug << "opendir(): " << filepath.c_str() << ": " << strerror(errno) << std::endl;
 			}
 		} else {
-			if (remove(entry->d_name) == -1) {
-				std::cerr << "remove(): " << entry->d_name << ": " << strerror(errno) << std::endl;
+			if (remove(filepath.c_str()) == -1) {
+				debug << "remove() file: " << filepath.c_str() << ": " << strerror(errno) << std::endl;
 			}
 		}
 	}
+	if (remove(path.c_str()) == -1) {
+		debug << "remove() dir: " << path.c_str() << ": " << strerror(errno) << std::endl;
+	}
+
 }
 
 void Response::handleDeleteRequest(Request const & req)
@@ -203,8 +219,7 @@ void Response::handleDeleteRequest(Request const & req)
 			throw StatusCodeException(HttpStatus::Conflict, _location);
 		} else {
 			if ((dirp = opendir(req.getFilename().c_str()))) {
-				deleteDirectoryFiles(dirp);
-				remove(req.getFilename().c_str());
+				deleteDirectoryFiles(dirp, req.getFilename());
 			}
 		}
 	} else {
@@ -243,13 +258,13 @@ std::string Response::HeadertoString()
 		size_t pos;
 		while (true)
 		{
-			// std::cerr << "fd: " << fd[0] << std::endl;
+			// debug << "fd: " << fd[0] << std::endl;
 			pollfd pfd = (pollfd){fd[0], POLLIN};
 			int pret = poll(&pfd, 1, -1);
 			if(pret == -1)
 				error("poll failed");
 			ret = read(fd[0], s + total, 2049 - total);
-			// std::cerr << "ret: " << ret << std::endl;
+			// debug << "ret: " << ret << std::endl;
 			// if (ret <= 0)
 			// 	return "";
 			total += ret;
@@ -279,7 +294,7 @@ std::string Response::HeadertoString()
 		}
 	}
 	response << "HTTP/1.1 " << this->_status << " " << reasonPhrase(this->_status) << CRLF;
-	std::cerr << response.str() << std::endl;
+	debug << response.str() << std::endl;
 	for (std::map<std::string, std::string>::iterator it = _headers.begin(); it != _headers.end(); ++it)
 	{
 		response << it->first << ": " << it->second << CRLF;
@@ -372,7 +387,7 @@ void Response::setErrorPage(const StatusCodeException & e, const Config * locati
 
 	if (e.getLocation() != ""){
 		_headers["Location"] = e.getLocation();
-		dout << "Location: " << e.getLocation() <<  CRLF;
+		debug << "Location: " << e.getLocation() <<  CRLF;
 	}
 
 	std::stringstream * err;
@@ -400,7 +415,7 @@ void Response::setErrorPage(const StatusCodeException & e, const Config * locati
 	}
 
 	// _body->seekg(0, _body->beg);
-	// std::cerr << "Content-Length: " << _body->tellp() << std::endl;
+	// debug << "Content-Length: " << _body->tellp() << std::endl;
 	// _headers["Content-Length"] = Utils::to_str(_body->tellp());
 	_headers["Transfer-Encoding"] = "chunked";
 
@@ -488,14 +503,14 @@ void Response::set_cgi_body(const Request & request)
 	char buff[BUFFER_SIZE] = {0};
 	// close(fd_body[0]);
 	// sent_body = request.getBody()->tellg();
-	std::cerr << "tellg " << request.getBody()->tellg() << std::endl;
-	// std::cerr  << "sent " << sent_body << "/" << request.getBodySize() << std::endl;
+	debug << "tellg " << request.getBody()->tellg() << std::endl;
+	// debug  << "sent " << sent_body << "/" << request.getBodySize() << std::endl;
 	// while (sent_body < request.getBodySize()){
 		std::streampos n = std::min((std::streampos)(request.getBodySize() - request.getBody()->tellg()), (std::streampos)(BUFFER_SIZE));
 		request.getBody()->read(buff, n);
 		// std::streamsize n = 47; // request.getBody()->tellg();
 		sent_body += n;
-		std::cerr  << "sent :" << n << "=>" <<  sent_body << "/" << request.getBodySize() << std::endl;
+		debug  << "sent :" << n << "=>" <<  sent_body << "/" << request.getBodySize() << std::endl;
 		write(fd_body[1], buff, n);
 		if (isSendingBodyFinished(request)) {
 	close(fd_body[1]);

@@ -1,5 +1,5 @@
 NAME	:= webserv
-SRC		:= parser.cpp webserv.cpp Socket.cpp Message.cpp Request.cpp Response.cpp MimeTypes.cpp Config.cpp
+SRC		:= parser.cpp webserv.cpp Socket.cpp Message.cpp Request.cpp Response.cpp MimeTypes.cpp Config.cpp debug.cpp
 SRC		:= $(addprefix src/,$(SRC))
 FLAGS	:= -Wall -Wextra -Werror
 
