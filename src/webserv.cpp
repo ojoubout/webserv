@@ -6,7 +6,7 @@ static bool running = true;
 socklen_t addrlen = sizeof(sockaddr_in);
 
 void error(std::string message) {
-	debug << "webserv: " << message << ". " << std::strerror(errno) << ". " << errno << std::endl;
+	std::cerr << "webserv: " << message << ". " << std::strerror(errno) << ". " << errno << std::endl;
 	for (std::vector<Config>::const_iterator it = servers.begin(); it != servers.end(); ++it) {
 		it->socket->close();
 		delete it->socket;
@@ -32,7 +32,7 @@ void handle_signal(int sig) {
 
 void exit_program(int sig) {
 	for (std::vector<Config>::const_iterator it = servers.begin(); it != servers.end(); ++it) {
-		debug << "Close Socket: " << it->socket->getFD() << std::endl;
+		std::cerr << "Close Socket: " << it->socket->getFD() << std::endl;
 		running = false;
 		it->socket->close();
 		delete it->socket;
@@ -67,14 +67,14 @@ int main(int argc, char *argv[]) {
 	// std::map<int, Socket> connections;
 	open_config_file(argc, argv);
 
-	// debug << servers[0].host << " " << htonl(inet_addr(servers[0].host.c_str())) << ":" << servers[0].port << std::endl;
+	// std::cerr << servers[0].host << " " << htonl(inet_addr(servers[0].host.c_str())) << ":" << servers[0].port << std::endl;
 
 	for (std::vector<Config>::iterator it = servers.begin(); it != servers.end(); ++it) {
 		Socket * sock = socketExists(it);
 		if (!sock) { // checks if host:port already exists 
 			setup_server(*it);
 			fds.push_back((pollfd){it->socket->getFD(), POLLIN});
-			debug << "Listening on " << it->host << ":" << it->port << std::endl;
+			std::cerr << "Listening on " << it->host << ":" << it->port << std::endl;
 		} else { // else copy the already existed socket 
 			it->socket = sock;
 		}
@@ -109,8 +109,8 @@ int main(int argc, char *argv[]) {
 					new_connection = new Connection(*sock);
 					new_connection->sock = sock->accept();
 					if (new_connection->sock.getFD() != -1) {
-						debug << "Socket: " << sock->getHost() << ":" << sock->getPort() << ", ";
-						debug << "New Connection: " << new_connection->sock.getHost() << ":" << new_connection->sock.getPort() << std::endl;
+						std::cerr << "Socket: " << sock->getHost() << ":" << sock->getPort() << ", ";
+						std::cerr << "New Connection: " << new_connection->sock.getHost() << ":" << new_connection->sock.getPort() << std::endl;
 						new_connection->sock.setState(NonBlockingSocket);
 						fds.push_back((pollfd){new_connection->sock.getFD(), POLLIN});
 						connections.insert(std::make_pair(new_connection->sock.getFD(), new_connection));
@@ -130,53 +130,68 @@ int main(int argc, char *argv[]) {
 				Request & request = connection.request;
 				Response & response = connection.response;
 					
-				if (fds[i].revents & POLLIN || ((fds[i].events & POLLIN) && request.getBuffer().length())) {
+				if (fds[i].revents & POLLIN || ((fds[i].events & POLLIN) && (request.getBuffer().length())) || (response.is_cgi() && !response.isCgiHeaderFinished())) {
+
 					try {
-						request.setServerConfig(getConnectionServerConfig(connection.parent.getHost(), connection.parent.getPort(), ""));
-						request.receive(connection.sock);
-						std::cout << "Reading " << std::endl;
-						if (request.isHeadersFinished()) {
-							debug << "Request Succesful" << std::endl;
-							
-							response.setServerConfig(getConnectionServerConfig(connection.parent.getHost(), connection.parent.getPort(), request.getHeader("Host")));
-							response.handleRequest(request);
+						if (fds[i].revents & POLLIN || request.getBuffer().length()) {
+							request.setServerConfig(getConnectionServerConfig(connection.parent.getHost(), connection.parent.getPort(), ""));
+							request.receive(connection.sock);
+							std::cout << "Reading " << std::endl;
+							if (request.isHeadersFinished()) {
+								debug << "Request Succesful" << std::endl;
+								
+								response.setServerConfig(getConnectionServerConfig(connection.parent.getHost(), connection.parent.getPort(), request.getHeader("Host")));
+								response.handleRequest(request);
+							}
+							// if (request.isBodyFinished()) {
+								// response.cgi_read(request);
+							// }
+								// std::cerr << std::boolalpha << response.is_cgi() << " " << !response.isSendingBodyFinished(request) <<
+							// " " << request.getBodySize() <<  std::endl;
+							if (response.is_cgi() && !response.isSendingBodyFinished(request))
+							{
+								response.set_cgi_body(request);
+							}
 						}
-						// if (request.isBodyFinished()) {
-							// response.cgi_read(request);
-						// }
-						// debug << std::boolalpha << response.is_cgi() << " " << !response.isSendingBodyFinished(request) <<
-						// " " << request.getBodySize() <<  std::endl;
-						if (response.is_cgi() && !response.isSendingBodyFinished(request))
-						{
-							response.set_cgi_body(request);
+
+						debug << "CGI Header: " << std::boolalpha << response.isCgiHeaderFinished() << std::endl;
+						// if (request.isHeadersFinished() && (!response.is_cgi() || request.isBodyFinished())) {
+
+						if (response.is_cgi() && !response.isCgiHeaderFinished()) {
+							response.readCgiHeader();
 						}
 					} catch (const StatusCodeException & e) {
-						debug << "Caught exception: " << e.getStatusCode() << " " << e.what() << std::endl;
+						std::cerr << "Caught exception: " << e.getStatusCode() << " " << e.what() << std::endl;
 
 						response.setServerConfig(getConnectionServerConfig(connection.parent.getHost(), connection.parent.getPort(), ""));
 						response.setErrorPage(e, e.getServer());
+						request.setHeaderFinished(true);
 						if (e.getStatusCode() >= 400) {
-							request.setHeaderFinished(true);
-							request.setBodyFinished(true);
 							response.setHeader("Connection", "close");
+							request.setBodyFinished(true);
 						}
 
 					} catch(const ListingException & e){
 						std::string data = response.listingPage(e);
 						// response.setServerConfig(getConnectionServerConfig(connection.parent.getHost(), connection.parent.getPort(), ""));
-						response.buffer_header.setData(data.c_str(), data.length());
+						request.setHeaderFinished(true);
+						request.setBodyFinished(true);
 						// fds[i].events = POLLOUT;
 					}
 
 					if (request.isHeadersFinished() && (!response.is_cgi() || request.isBodyFinished())) {
-						std::string data = response.HeadertoString();
-						// debug << "Response: " << response.getStatusCode() <<  << std::endl;
-						response.buffer_header.setData(data.c_str(), data.length());
+						
+						if (!response.is_cgi() || response.isCgiHeaderFinished())
+						{
+							std::string data = response.HeadertoString();
+								// std::cerr << "Response: " << response.getStatusCode() <<  << std::endl;
+							response.buffer_header.setData(data.c_str(), data.length());
+							request.setHeaderFinished(false);
+						}
 						fds[i].events = POLLOUT;
 						if (!request.isBodyFinished()) {
 							fds[i].events |= POLLIN;
 						}
-						request.setHeaderFinished(false);
 					}
 				}
 
@@ -215,7 +230,7 @@ int main(int argc, char *argv[]) {
 					close = true;
 				}
 				if (close) {
-					debug << "Close " << connection.sock.getFD() << std::endl;
+					std::cerr << "Close " << connection.sock.getFD() << std::endl;
 					connection.sock.close();
 					fds.erase(fds.begin() + i);
 					connections.erase(connection.sock.getFD());
@@ -229,7 +244,7 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
-	debug << "Program Closing" << std::endl;
+	std::cerr << "Program Closing" << std::endl;
 	// Bind the socket to a IP / port
 	// Mark the socket for listening in
 	// Accept a call

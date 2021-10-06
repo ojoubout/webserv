@@ -33,6 +33,8 @@ void Request::reset() {
 
     _upload = false;
 
+    debug << "RESET\n";
+
 }
 Request::Request() {
     reset();
@@ -48,6 +50,9 @@ Request::Request(const Socket & connection) throw(StatusCodeException) {
     debug << "Body: " << ((std::stringstream *)_body)->str() << "|" << std::endl;
 }
 
+// Request::Request(const Request & req) {
+//     *this = req;
+// }
 
 std::string & trim(std::string & str) {
     int first = str.find_first_not_of(" \n\r\t");
@@ -91,9 +96,13 @@ static const std::string getRequestedPath(const std::string & target, const Conf
 	requested_path += location->uri != "" ? path.substr(location->uri.length()) : path;
 	// debug << "SUBSTR: " << location->uri << " " << location->uri.length() << " " << path.substr(location->uri.length()) << std::endl;
 
-	debug << "Requested File: " << requested_path << std::endl;
-	if (requested_path[requested_path.length() - 1] != '/' && stat(requested_path.c_str(), &buffer) == 0 && S_ISDIR(buffer.st_mode) && method != DELETE) {
-		throw StatusCodeException(HttpStatus::MovedPermanently, path + '/', location);
+	debug << "Target: " << target << ", Requested File: " << requested_path << std::endl;
+	if (stat(requested_path.c_str(), &buffer) == 0 && S_ISDIR(buffer.st_mode) && method != DELETE) {
+        if (target[target.length() - 1] != '/') {
+		    throw StatusCodeException(HttpStatus::MovedPermanently, path + '/', location);
+        // } else {
+
+        }
 	}
 
 	return requested_path;
@@ -119,7 +128,18 @@ static const std::string getIndexFile(const Config * location, const std::string
 
 void Request::checkRequestTarget() {
     _location = getLocationFromRequest(*this, _server);
+
+
 	_filename = getRequestedPath(_request_target, _location, _method);
+    _location = getLocationFromRequest(*this, _server);
+
+    if (_location->redirect.first != HttpStatus::None) {
+		if (HttpStatus::isRedirection(_location->redirect.first)) {
+			throw StatusCodeException(_location->redirect.first, _location->redirect.second, _location);
+		} else {
+			throw StatusCodeException(_location->redirect.first, _location);
+		}
+	}
     struct stat fileStat;
     stat (_filename.c_str(), &fileStat);
 	Utils::fileStat(_filename, fileStat, _location);
@@ -127,6 +147,7 @@ void Request::checkRequestTarget() {
 		_filename = getIndexFile(_location, _filename, _request_target);
 	}
     _location = getLocationFromRequest(*this, _server);
+
 }
 
 void Request::receive(const Socket & connection) {
@@ -205,6 +226,7 @@ bool Request::parse() {
             }
             _parser.end = true;
             if (_location->upload) {
+                debug << _location->uri << " " << _location->upload << std::endl;
                 throw StatusCodeException(HttpStatus::Created, _location);
             }
         } else if ((_parser.current_stat == _parser.HEADER_KEY && (c == ':' || end))) {
@@ -263,7 +285,7 @@ bool isValidDecimal(const std::string decimal) {
 size_t Request::receiveBody() {
     // int i = 0;
     char c = -1;
-    if (_headers.find("Transfer-Encoding") != _headers.end() && _headers["Transfer-Encoding"] == "chunked") {
+    if (_headers.find("Transfer-Encoding") != _headers.end() && getHeader("Transfer-Encoding") == "chunked") {
         while (_parser.buff.length()) {
             if (_bparser.len > 0) {
                 size_t write_len = std::min((size_t)_bparser.len, _parser.buff.length());
@@ -309,9 +331,9 @@ size_t Request::receiveBody() {
             if (c == '\r') _bparser.cr = true; else _bparser.cr = false;
         }
     } else if (_headers.find("Content-Length") != _headers.end()) {
-        if (isValidDecimal(_headers["Content-Length"])) {
+        if (isValidDecimal(getHeader("Content-Length"))) {
             if (_bparser.len == -1) {
-                _bparser.len = std::atol(_headers["Content-Length"].c_str());
+                _bparser.len = std::atol(getHeader("Content-Length").c_str());
                 if (_bparser.len > _location->max_body_size) {
                     throw StatusCodeException(HttpStatus::PayloadTooLarge, _location);
                 }
@@ -357,9 +379,9 @@ void Request::openBodyFile() {
         perror("fstream()");
         if (errno == EACCES || errno == EPERM) {
             throw StatusCodeException(HttpStatus::Forbidden, _location);
-        } else if (errno == ENOENT || errno == EISDIR || errno == ENAMETOOLONG || errno == EFAULT) {
+        } else if (errno == ENOENT || errno == ENAMETOOLONG || errno == EFAULT) {
             throw StatusCodeException(HttpStatus::NotFound, _location);
-        } else if (errno == ENOTDIR) {
+        } else if (errno == ENOTDIR || errno == EISDIR) {
             throw StatusCodeException(HttpStatus::Conflict, _location);
         } else {
             throw StatusCodeException(HttpStatus::InternalServerError, _location);

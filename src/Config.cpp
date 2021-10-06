@@ -11,6 +11,7 @@ Config::Config() {
     redirect.first = HttpStatus::None;
     listing = false;
     socket = NULL;
+    upload = false;
     free(cwd);
 }
 

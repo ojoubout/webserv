@@ -26,13 +26,13 @@ struct ci_less : std::binary_function<std::string, std::string, bool>
         s2.begin (), s2.end (),   // dest range
         nocase_compare ());  // comparison
     }
-  };
+};
 
 class Message
 {
 protected:
 
-	std::map<std::string, std::string, ci_less> _headers;
+	std::multimap<std::string, std::string, ci_less> _headers;
 	std::iostream * _body;
 	size_t		_body_size;
 	bool _isBodyFile;
@@ -44,7 +44,7 @@ public:
 	Message();
 	Message(const std::string & message);
 	~Message();
-	std::map<std::string, std::string, ci_less> & getHeaders();
+	const std::multimap<std::string, std::string, ci_less> & getHeader() const;
 	const std::string getHeader(const std::string & key) const;
 	std::iostream * getBody() const; 
 	void insert_header(std::string const & key, std::string const & val);

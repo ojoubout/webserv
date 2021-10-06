@@ -11,14 +11,14 @@ enum ParseError {
     INVALID_METHOD, DUPLICATE_METHOD, DUPLICATE_LOCATION
 };
 
-static const size_t NUM_DIRECTIVES = 14;
+static const size_t NUM_DIRECTIVES = 13;
 static const std::string directives[] = {
     "server", "location", "listen", "server_name", // Server directives
     "error_page", "max_body_size", "root", "listing", "index", "http_method",  // Server & Location directives
     "redirect", "cgi_pass", "upload_pass"};  // Location directives
 
 static const size_t server_index = 4;
-static const size_t location_index = 11;
+static const size_t location_index = 10;
 
 static char tokens[] = {'{', '}', ';'};
 
@@ -26,33 +26,33 @@ static char delimiter;
 
 static void error(ParseError err, const std::string arg) {
     if (err == UNEXPECTED_SYMBOL) {
-        debug << "webserv: unexpected \"" << arg << "\"" << std::endl; 
+        std::cerr << "webserv: unexpected \"" << arg << "\"" << std::endl; 
     } else if (err == UNEXPECTED_EOF) {
-        debug << "webserv: unexpected end of file, expecting \"" << arg << "\"" << std::endl;
+        std::cerr << "webserv: unexpected end of file, expecting \"" << arg << "\"" << std::endl;
     } else if (err == UNKNOWN_DIRECTIVE) {
-        debug << "webserv: unknown directive \"" << arg << "\" " << std::endl;
+        std::cerr << "webserv: unknown directive \"" << arg << "\" " << std::endl;
     } else if (err == DIRECTIVE_NOT_ALLOWED) {
-        debug << "webserv: \"" << arg << "\" directive is not allowed here" << std::endl;
+        std::cerr << "webserv: \"" << arg << "\" directive is not allowed here" << std::endl;
     } else if (err == DIRECTIVE_HAS_NO_OPENING) {
-        debug << "webserv: directive \"" << arg << "\" has no opening \"{\" " << std::endl;
+        std::cerr << "webserv: directive \"" << arg << "\" has no opening \"{\" " << std::endl;
     } else if (err == DIRECTIVE_NOT_TERMINATED) {
-        debug << "webserv: directive \"" << arg << "\" is not terminated by \";\"" << std::endl;
+        std::cerr << "webserv: directive \"" << arg << "\" is not terminated by \";\"" << std::endl;
     } else if (err == INVALID_ARGUMENTS) {
-        debug << "webserv: invalid number of arguments in \"" << arg << "\" directive" << std::endl;
+        std::cerr << "webserv: invalid number of arguments in \"" << arg << "\" directive" << std::endl;
     } else if (err == INVALID_PORT) {
-        debug << "webserv: invalid port \"" << arg << "\"" << std::endl;
+        std::cerr << "webserv: invalid port \"" << arg << "\"" << std::endl;
     } else if (err == INVALID_ERROR_CODE) {
-        debug << "webserv: invalid error code \"" << arg << "\"" << std::endl;
+        std::cerr << "webserv: invalid error code \"" << arg << "\"" << std::endl;
     } else if (err == INVALID_STATUS_CODE) {
-        debug << "webserv: invalid status code \"" << arg << "\"" << std::endl;
+        std::cerr << "webserv: invalid status code \"" << arg << "\"" << std::endl;
     } else if (err == INVALID_METHOD) {
-        debug << "webserv: invalid method \"" << arg << "\"" << std::endl;
+        std::cerr << "webserv: invalid method \"" << arg << "\"" << std::endl;
     } else if (err == DUPLICATE_METHOD) {
-        debug << "webserv: duplicate method \"" << arg << "\"" << std::endl;
+        std::cerr << "webserv: duplicate method \"" << arg << "\"" << std::endl;
     } else if (err == DUPLICATE_LOCATION) {
-        debug << "webserv: duplicate location \"" << arg << "\"" << std::endl;
+        std::cerr << "webserv: duplicate location \"" << arg << "\"" << std::endl;
     } else if (err == DUPLICATE_SERVER_NAME) {
-        debug << "webserv: conflicting server name \"" << arg << "\"" << std::endl;
+        std::cerr << "webserv: conflicting server name \"" << arg << "\"" << std::endl;
     }
     exit(EXIT_FAILURE);
 }
@@ -184,7 +184,7 @@ void conflictingServerName() {
     if (curr_server) {
         for (std::vector<Config>::const_iterator it = servers.begin(); &(*it) != curr_server; ++it) {
             if (it->host == curr_server->host && it->port == curr_server->port && it->server_name == curr_server->server_name) {
-                debug << "webserv: conflicting server name " << it->server_name << " on " << it->host << ":" << it->port << ", ignored" << std::endl;
+                std::cerr << "webserv: conflicting server name " << it->server_name << " on " << it->host << ":" << it->port << ", ignored" << std::endl;
                 servers.pop_back();
             }
         }
@@ -298,11 +298,11 @@ void open_config_file(int argc, char *argv[]) {
             parse(file);
             file.close();
         } else {
-            debug << argv[0] << ": Can't open file!" << std::endl;
+            std::cerr << argv[0] << ": Can't open file!" << std::endl;
             exit(EXIT_FAILURE);
         }
     } else {
-        debug << argv[0] << ": Wrong number of arguments!" << std::endl;
+        std::cerr << argv[0] << ": Wrong number of arguments!" << std::endl;
         exit(EXIT_FAILURE);
     }
 }

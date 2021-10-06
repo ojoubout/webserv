@@ -76,7 +76,7 @@ const sockaddr_in & Socket::getAddress() const {
 
 void Socket::close() const {
     if (_fd != -1) {
-        // debug << "Close Socket" << std::endl;
+        // std::cerr << "Close Socket" << std::endl;
         ::close(_fd);
     }
 }
@@ -106,7 +106,7 @@ ssize_t Socket::recv(void *buf, size_t n) const {
 // }
 
 void Socket::send(Response & res) const {
-    // debug << "BEFORE: " << buffer.length()  << std::endl;
+    // std::cerr << "BEFORE: " << buffer.length()  << std::endl;
     Buffer * buffer; 
     if (res.buffer_header.length() != 0) {
         buffer = &res.buffer_header;
@@ -115,15 +115,15 @@ void Socket::send(Response & res) const {
         if (buffer->pos == 0) {
             std::stringstream ss;
             ss << std::hex << buffer->length() << CRLF;
-            debug << "sent: " << ss.str() << std::endl;
-            write(2, ss.str().c_str(), ss.str().length());
+            // std::cerr << "sent: " << ss.str() << std::endl;
+            // write(2, ss.str().c_str(), ss.str().length());
             ::send(_fd, ss.str().c_str(), ss.str().length(), 0);
         }
     }
         // write(2, buffer->data + buffer->pos, buffer->length());
     int bytes = ::send(_fd, buffer->data + buffer->pos, buffer->length(), 0);
 
-    // debug << "SENT: " << bytes << std::endl;
+    // std::cerr << "SENT: " << bytes << std::endl;
     if (bytes != -1) {
         buffer->pos += bytes;
     }
@@ -135,7 +135,7 @@ void Socket::send(Response & res) const {
 }
 
 void Socket::error(std::string message) const {
-	debug << message << ". " << std::strerror(errno)  << ". " << errno << std::endl;
+	std::cerr << message << ". " << std::strerror(errno)  << ". " << errno << std::endl;
 	close();
 	return exit(EXIT_FAILURE);
 }
