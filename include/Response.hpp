@@ -17,6 +17,8 @@
 # include "Utils.hpp"
 # include "MimeTypes.hpp"
 # include "Config.hpp"
+# include <cstring>
+
 // #include
 class Config;
 class Request;

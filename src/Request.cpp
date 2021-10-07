@@ -168,6 +168,11 @@ void Request::receive(const Socket & connection) {
     parse();
     if (_bparser.end) {
         _body_size = _body->tellp();
+        if (_location->upload) {
+            debug << _location->uri << " " << _location->upload << std::endl;
+            throw StatusCodeException(HttpStatus::Created, _location);
+        }
+
     }
 }
 
@@ -225,10 +230,6 @@ bool Request::parse() {
                 throw StatusCodeException(HttpStatus::MethodNotAllowed, _location);
             }
             _parser.end = true;
-            if (_location->upload) {
-                debug << _location->uri << " " << _location->upload << std::endl;
-                throw StatusCodeException(HttpStatus::Created, _location);
-            }
         } else if ((_parser.current_stat == _parser.HEADER_KEY && (c == ':' || end))) {
             _parser.key = trim(_parser.str);
             _parser.current_stat = _parser.HEADER_VALUE;

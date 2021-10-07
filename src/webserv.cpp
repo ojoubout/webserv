@@ -73,7 +73,7 @@ int main(int argc, char *argv[]) {
 		Socket * sock = socketExists(it);
 		if (!sock) { // checks if host:port already exists 
 			setup_server(*it);
-			fds.push_back((pollfd){it->socket->getFD(), POLLIN});
+			fds.push_back((pollfd){it->socket->getFD(), POLLIN | POLLOUT});
 			std::cerr << "Listening on " << it->host << ":" << it->port << std::endl;
 		} else { // else copy the already existed socket 
 			it->socket = sock;
@@ -112,7 +112,7 @@ int main(int argc, char *argv[]) {
 						std::cerr << "Socket: " << sock->getHost() << ":" << sock->getPort() << ", ";
 						std::cerr << "New Connection: " << new_connection->sock.getHost() << ":" << new_connection->sock.getPort() << std::endl;
 						new_connection->sock.setState(NonBlockingSocket);
-						fds.push_back((pollfd){new_connection->sock.getFD(), POLLIN});
+						fds.push_back((pollfd){new_connection->sock.getFD(), POLLIN | POLLOUT});
 						connections.insert(std::make_pair(new_connection->sock.getFD(), new_connection));
 					}
 
@@ -130,7 +130,7 @@ int main(int argc, char *argv[]) {
 				Request & request = connection.request;
 				Response & response = connection.response;
 					
-				if (fds[i].revents & POLLIN || ((fds[i].events & POLLIN) && (request.getBuffer().length())) || (response.is_cgi() && !response.isCgiHeaderFinished())) {
+				if (fds[i].revents & POLLIN || request.getBuffer().length() || (response.is_cgi() && !response.isCgiHeaderFinished())) {
 
 					try {
 						if (fds[i].revents & POLLIN || request.getBuffer().length()) {
@@ -176,7 +176,6 @@ int main(int argc, char *argv[]) {
 						// response.setServerConfig(getConnectionServerConfig(connection.parent.getHost(), connection.parent.getPort(), ""));
 						request.setHeaderFinished(true);
 						request.setBodyFinished(true);
-						// fds[i].events = POLLOUT;
 					}
 
 					if (request.isHeadersFinished() && (!response.is_cgi() || request.isBodyFinished())) {
@@ -188,10 +187,6 @@ int main(int argc, char *argv[]) {
 							response.buffer_header.setData(data.c_str(), data.length());
 							request.setHeaderFinished(false);
 						}
-						fds[i].events = POLLOUT;
-						if (!request.isBodyFinished()) {
-							fds[i].events |= POLLIN;
-						}
 					}
 				}
 
@@ -201,19 +196,18 @@ int main(int argc, char *argv[]) {
 					if (response.buffer_body.length() == 0 && (response.is_cgi() || !response.getFile()->eof())) {
 						response.readFile();
 					}
-					if (response.buffer_body.length() || response.buffer_header.length())
+					if (response.buffer_body.length() || response.buffer_header.length()) {
 						connection.sock.send(response);
+						// if (response.getFile()->eof() && response.buffer_header.length() == 0 && response.buffer_body.length() == 0) {
+						// 	if (response.getHeader("Transfer-Encoding") == "chunked") {
+						// 		write(2, "0\r\n\r\n", 5);
+						// 		send(connection.sock.getFD(), "0\r\n\r\n", 5, 0);
+						// 	}
+						// }
+					}
 						
 				}
 				if (!response.is_cgi() && response.getFile()->eof() && response.buffer_header.length() == 0 && response.buffer_body.length() == 0) {
-					if (fds[i].revents & POLLOUT) {
-						// fds[i].events = POLLIN;
-						if (response.getHeader("Transfer-Encoding") == "chunked") {
-							// write(2, "0\r\n\r\n", 5);
-							send(connection.sock.getFD(), "0\r\n\r\n", 5, 0);
-						}
-						fds[i].events = POLLIN;
-					}
 					if (request.isBodyFinished()) {
 						if (request.getHeader("Connection") == "close") {
 							response.setHeader("Connection", "close");

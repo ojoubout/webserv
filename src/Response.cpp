@@ -330,31 +330,42 @@ const std::iostream * Response::getFile() const {
 
 void	Response::readFile() {
 
+	std::stringstream ss;
+	ssize_t size;
+
+	buffer_body.resize(1024 + 7);
 	if (!_is_cgi)
 	{
-		buffer_body.resize(1024);
-		_body->read(buffer_body.data, buffer_body.size);
-		std::streamsize s = ((*_body) ? buffer_body.size : _body->gcount());
-		buffer_body.resize(s);
+		_body->read(buffer_body.data + 5, buffer_body.size - 7);
+		size = ((*_body) ? buffer_body.size - 7 : _body->gcount());        
 	}
 	else
 	{
 		pollfd pfd = (pollfd){fd[0], POLLIN};
 		close(fd[1]);
-		// waitpid(pid, NULL, 0);
-		buffer_body.resize(1024);
+
+		// buffer_body.resize(1024);
+
 		int pret = poll(&pfd, 1, -1);
 		if (pret == -1)
 			error("poll failed");
-		int ret = read(fd[0], buffer_body.data, 1024);
-		if (ret == 0) {
+	
+		size = read(fd[0], buffer_body.data, buffer_body.size - 7);
+
+		if (size == 0) {
 			_is_cgi = false;
 			close(fd[0]);
 		}
-		if (ret != 1024) {
-			buffer_body.resize(ret);
-		}
 	}
+
+	// 0 0 0 0 0 0 0 0 0;
+	buffer_body.data[size + 7 - 2] = '\r';
+	buffer_body.data[size + 7 - 1] = '\n';
+
+	ss << std::setfill('0') << std::setw(3) << std::hex << size << CRLF;
+
+	std::memcpy(buffer_body.data, ss.str().c_str(), ss.str().length());
+	buffer_body.resize(ss.str().length() + size + 2);
 }
 
 std::stringstream * errorTemplate(const StatusCodeException & e) {
