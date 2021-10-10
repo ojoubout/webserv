@@ -114,15 +114,18 @@ void Socket::send(Response & res) const {
         buffer = &res.buffer_body;
     }
 
-    std::cerr << "------\n";
-    write(2, buffer->data + buffer->pos, buffer->length());
-    int bytes = ::send(_fd, buffer->data + buffer->pos, buffer->length(), 0);
-    std::cerr << bytes << "------\n";
+    // debug << "------\n";
+    if (buffer->length() > 0) {
+        // write(2, buffer->data + buffer->pos, buffer->length());
+        int bytes = ::send(_fd, buffer->data + buffer->pos, buffer->length(), 0);
 
-    // std::cerr << "SENT: " << bytes << std::endl;
-    if (bytes != -1) {
-        buffer->pos += bytes;
+        if (bytes > 0) {
+            buffer->pos += bytes;
+        } else {
+            throw StatusCodeException(HttpStatus::None, NULL);
+        }
     }
+    // debug << "------\n";
 
     // if (res.buffer_body.length() == 0 && res.buffer_body.size != 0) {
     //     // write(2, "\r\n", 2);

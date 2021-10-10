@@ -55,7 +55,7 @@ public:
     Request(const Socket & connection) throw (StatusCodeException);
     ~Request();
 
-    const Method getMethod() const;
+    Method getMethod() const;
     std::string getMethodName() const;
     const std::string & getRequestTarget() const;
     const std::string & getHTTPVersion() const;

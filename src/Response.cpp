@@ -2,12 +2,14 @@
 #include "debug.hpp"
 #include <algorithm>
 
-Response::Response() : _is_cgi(false), _status(HttpStatus::StatusCode(200)), sent_body(0), _isCgiHeaderFinished(false), cgiHeader("")
+Response::Response() : _send_end_chunk(false)
 {
+	reset();
 }
 
-Response::Response(Response const & src) : _is_cgi(false), _status(HttpStatus::StatusCode(200)), sent_body(0), _isCgiHeaderFinished(false), cgiHeader("")
+Response::Response(Response const & src) : _send_end_chunk(false)
 {
+	reset();
 	*this = src;
 }
 
@@ -21,6 +23,7 @@ Response &Response::operator=(Response const & src)
 	_server = src._server;
 	_is_cgi = src._is_cgi;
 	sent_body = src.sent_body;
+	_send_end_chunk = src._send_end_chunk;
 	return (*this);
 }
 
@@ -33,7 +36,7 @@ void Response::reset() {
 	sent_body = 0;
 	_isCgiHeaderFinished = false;
 	cgiHeader.str("");
-	
+	// _send_end_chunk = false;
 }
 
 // Response::Response(Request const & req, const Config * config) 
@@ -50,6 +53,7 @@ void Response::handleRequest(Request const & req) {
 	// debug <<  "****" << req.getRequestTarget() << std::endl;
 	// debug << _location->root << std::endl;
 	// debug << req.getFilename() << std::endl;
+	_send_end_chunk = false;
 	if (_server->location.find(Utils::getFileExtension(req.getFilename())) != _server->location.end()) {
 		_is_cgi = true;
 		if (req.isBodyFinished()) {
@@ -67,7 +71,6 @@ void Response::handleRequest(Request const & req) {
 void Response::handleCGI(Request const & req)
 {
 	std::string filename = req.getFilename();
-	debug << _location->cgi << std::endl;
 	char buff[101] = {0};
 	_is_cgi = true;
 	char * const ar[4] = {const_cast<char *>(_location->cgi.c_str()), const_cast<char *>(filename.c_str()), NULL};
@@ -80,9 +83,9 @@ void Response::handleCGI(Request const & req)
 	{
 		std::vector<const char *> v;
 		v.push_back(strdup((std::string("REQUEST_METHOD") + "=" + req.getMethodName()).c_str()));
-		v.push_back(strdup((std::string("PATH") + "=" + getenv("PATH")).c_str()));
-		v.push_back(strdup((std::string("TERM") + "=" + getenv("TERM")).c_str()));
-		v.push_back(strdup((std::string("HOME") + "=" + getenv("HOME")).c_str()));
+		v.push_back(strdup((std::string("PATH") + "=" + (getenv("PATH") ?: "")).c_str()));
+		v.push_back(strdup((std::string("TERM") + "=" + (getenv("TERM") ?: "")).c_str()));
+		v.push_back(strdup((std::string("HOME") + "=" + (getenv("HOME") ?: "")).c_str()));
 		gethostname(buff, 100);
 		v.push_back(strdup((std::string("HOSTNAME") + "=" + buff).c_str()));
 		getlogin_r(buff, 100);
@@ -96,8 +99,7 @@ void Response::handleCGI(Request const & req)
 		// std::cerr << "len : " << length << std::endl;
 		v.push_back(strdup((std::string("QUERY_STRING") + "=" + req.getRequestTarget().substr(n)).c_str()));
 		v.push_back(strdup((std::string("HTTP_COOKIE") + "=" + req.getHeader("Cookie")).c_str()));
-		std::cerr << "coockes : " << req.getHeader("Cookie") << std::endl;
-		// v.push_back(strdup((std::string("REDIRECT_STATUS") + "=").c_str()));
+		v.push_back(strdup((std::string("REDIRECT_STATUS") + "=").c_str()));
 		v.push_back(NULL);
 		close(fd[0]);
 		close(fd_body[1]);
@@ -118,6 +120,8 @@ void Response::handleCGI(Request const & req)
 	insert_header("Server", SERVER_NAME);
 	insert_header("Transfer-Encoding", "chunked");
 	const char * type = MimeTypes::getType(filename.c_str());
+	if (type)
+		insert_header("Content-Type", type);
 	insert_header("Connection", "keep-alive");
 	insert_header("Accept-Ranges", "bytes");
 }
@@ -137,13 +141,14 @@ void Response::handleGetRequest(Request const & req)
 	insert_header("Last-Modified", Utils::time_last_modification(fileStat));
 	insert_header("Transfer-Encoding", "chunked");
 	const char * type = MimeTypes::getType(filename.c_str());
+	if (type)
+		insert_header("Content-Type", type);
 	insert_header("Connection", "keep-alive");
 	insert_header("Accept-Ranges", "bytes");
 }
 
 void Response::handlePostRequest(Request const & req)
 {
-	std::cout << "upload pass :" << req.getServerConfig()->upload << std::endl;
 	std::string filename = req.getFilename();
 	struct stat fileStat;
 
@@ -157,6 +162,8 @@ void Response::handlePostRequest(Request const & req)
 	insert_header("Last-Modified", Utils::time_last_modification(fileStat));
 	insert_header("Transfer-Encoding", "chunked");
 	const char * type = MimeTypes::getType(filename.c_str());
+	if (type)
+		insert_header("Content-Type", type);
 	insert_header("Connection", "keep-alive");
 	insert_header("Accept-Ranges", "bytes");
 }
@@ -294,18 +301,16 @@ std::string Response::HeadertoString()
 	// 		// _headers[line.substr(0, start)] = trim(str);
 	// 	}
 	// }
+
+	// debug << this->_status << std::endl;
 	response << "HTTP/1.1 " << this->_status << " " << reasonPhrase(this->_status) << CRLF;
-	std::cerr << response.str() << std::endl;
+	// debug << response.str() << std::endl;
 	for (std::multimap<std::string, std::string>::iterator it = _headers.begin(); it != _headers.end(); ++it)
 	{
 		response << it->first << ": " << it->second << CRLF;
 	}
 	response << CRLF;
 	return (response.str());
-}
-
-const std::iostream * Response::getFile() const {
-	return _body;
 }
 
 // void    Response::send_file(Socket & connection)
@@ -334,31 +339,39 @@ void	Response::readFile() {
 	ssize_t size;
 
 	buffer_body.resize(1024 + 7);
-	if (!_is_cgi)
+	if (!_is_cgi || getBodySize())
 	{
 		_body->read(buffer_body.data + 5, buffer_body.size - 7);
-		size = ((*_body) ? buffer_body.size - 7 : _body->gcount());        
+		size = ((*_body) ? buffer_body.size - 7 : _body->gcount());    
 	}
 	else
 	{
-		pollfd pfd = (pollfd){fd[0], POLLIN};
+		pollfd pfd = (pollfd){fd[0], POLLIN, 0};
 		close(fd[1]);
 
 		// buffer_body.resize(1024);
 
 		int pret = poll(&pfd, 1, -1);
+		if (pfd.revents & 0) {
+			return ;
+		}
 		if (pret == -1)
 			error("poll failed");
+
 	
-		size = read(fd[0], buffer_body.data, buffer_body.size - 7);
+		size = read(fd[0], buffer_body.data + 5, buffer_body.size - 7);
 
 		if (size == 0) {
 			_is_cgi = false;
 			close(fd[0]);
+		} else if (size == -1) {
+			throw StatusCodeException(HttpStatus::InternalServerError, _location);
 		}
 	}
 
-	// 0 0 0 0 0 0 0 0 0;
+	if (size == 0) {
+		_send_end_chunk = true;
+	}
 	buffer_body.data[size + 7 - 2] = '\r';
 	buffer_body.data[size + 7 - 1] = '\n';
 
@@ -391,6 +404,7 @@ std::stringstream * errorTemplate(const StatusCodeException & e) {
 
 void Response::setErrorPage(const StatusCodeException & e, const Config * location) {
 	_status = e.getStatusCode();
+	// std::cerr << "S: " << this->_status << std::endl;
 
 	// _headers["Connection"] = "keep-alive";
 	// _headers["Content-Type"] = "text/html";
@@ -404,10 +418,8 @@ void Response::setErrorPage(const StatusCodeException & e, const Config * locati
 	if (e.getLocation() != ""){
 		// _headers["Location"] = e.getLocation();
 		insert_header("Location", e.getLocation());
-		debug << "Location: " << e.getLocation() <<  CRLF;
 	}
 
-	std::stringstream * err;
 
 	const std::map<int, std::string> & error_page = location->error_page.empty() ? _server->error_page : location->error_page;
 
@@ -519,26 +531,45 @@ bool Response::is_cgi() const
 
 bool Response::isSendingBodyFinished(const Request & request) const
 {
-	return request.getBodySize() == sent_body || request.getBodySize() == 0;
+	return request.getBodySize() == (unsigned long)sent_body || request.getBodySize() == 0;
 }
 
 void Response::set_cgi_body(const Request & request)
 {
 	char buff[BUFFER_SIZE] = {0};
+	ssize_t ret;
 	// close(fd_body[0]);
 	// sent_body = request.getBody()->tellg();
 	// std::cerr << "tellg " << request.getBody()->tellg() << std::endl;
 	// std::cerr  << "sent " << sent_body << "/" << request.getBodySize() << std::endl;
 	// while (sent_body < request.getBodySize()){
-		std::streampos n = std::min((std::streampos)(request.getBodySize() - request.getBody()->tellg()), (std::streampos)(BUFFER_SIZE));
-		request.getBody()->read(buff, n);
-		// std::streamsize n = 47; // request.getBody()->tellg();
-		sent_body += n;
-		// std::cerr  << "sent :" << n << "=>" <<  sent_body << "/" << request.getBodySize() << std::endl;
-		write(fd_body[1], buff, n);
-		if (isSendingBodyFinished(request)) {
-	close(fd_body[1]);
+
+	pollfd pfd = (pollfd){fd_body[1], POLLOUT, 0};
+
+	int pret = poll(&pfd, 1, 0);
+	if (pfd.revents & 0) {
+		return ;
+	}
+
+	if (pret == -1)
+		error("poll failed");
+
+	
+	std::streampos n = std::min((std::streampos)(request.getBodySize() - request.getBody()->tellg()), (std::streampos)(BUFFER_SIZE));
+	request.getBody()->read(buff, n);
+	// std::streamsize n = 47; // request.getBody()->tellg();
+	sent_body += n;
+	// std::cerr  << "sent :" << n << "=>" <<  sent_body << "/" << request.getBodySize() << std::endl;
+	if (n > 0) {
+		ret = write(fd_body[1], buff, n);
+		if (ret == 0 || ret == -1) {
+			throw StatusCodeException(HttpStatus::InternalServerError, _location);
 		}
+	}
+	if (isSendingBodyFinished(request)) {
+		close(fd_body[1]);
+	}
+
 	// }
 	// close(fd_body[1]);
 }
@@ -571,18 +602,19 @@ void Response::readCgiHeader()
 		int ret = 0;
 		// size_t pos;
 		// std::cerr << "fd: " << fd[0] << std::endl;
-		pollfd pfd = (pollfd){fd[0], POLLIN};
+		pollfd pfd = (pollfd){fd[0], POLLIN, 0};
 		// std::cerr << "Before" << std::endl;
 		int pret = poll(&pfd, 1, -1);
-		if (pfd.revents & 0) {
+		if (pfd.revents & 0 || !(pfd.revents & POLLIN)) {
 			return ;
 		}
 		// std::cerr << "After" << std::endl;
 		if(pret == -1)
 			error("poll failed");
 		ret = read(fd[0], s, 2049);
-		if (ret == -1)
-			return ;
+		if (ret == 0 || ret == -1) {
+			throw StatusCodeException(HttpStatus::InternalServerError, _location);
+		}
 		cgiHeader << s;
 		// std::cerr << "ret: " << ret << std::endl;
 		// if (ret <= 0)
@@ -600,7 +632,10 @@ void Response::readCgiHeader()
 		}
 		if (isCgiHeaderFinished()) 
 		{
-			buffer_body.setData(temp.substr(pos).c_str(), temp.substr(pos).length());
+			// buffer_body.setData(temp.substr(pos).c_str(), temp.substr(pos).length());
+			std::string sub = temp.substr(pos);
+			_body->write(sub.c_str(), sub.length());
+			setBodySize(sub.length());
 			std::stringstream ss(temp.substr(0, pos));
 			std::string line;
 			while (std::getline(ss, line))
@@ -631,4 +666,8 @@ void Response::readCgiHeader()
 	// 		// _headers[line.substr(0, start)] = trim(str);
 	// 	}
 	// }
+}
+
+bool Response::isEndChunkSent() const {
+	return _send_end_chunk;
 }

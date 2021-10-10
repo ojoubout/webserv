@@ -31,15 +31,16 @@ class Response : public Message
 {
     private:
         HttpStatus::StatusCode	_status;
-        bool					_isCgiHeaderFinished;
         bool					_is_cgi;
         pid_t					pid;
         int						fd[2];
         int						fd_body[2];
         std::streamsize			body_size_cgi;
         std::streamsize			sent_body;
+        bool					_isCgiHeaderFinished;
 		std::stringstream		cgiHeader;
 
+        bool _send_end_chunk;
         // const std::string getRequestedPath(const Request &, const Config *);
     public:
         Buffer buffer_header;
@@ -58,7 +59,6 @@ class Response : public Message
         HttpStatus::StatusCode getStatusCode() const;
         void    send_file(Socket & connection);
         void    readFile();
-        const std::iostream * getFile() const;
         std::string getIndexFile(const Config * location, const std::string & filename, const std::string & req_taget);
         void setErrorPage(const StatusCodeException & e, const Config * location);
         std::string listingPage(const ListingException & e);
@@ -68,10 +68,11 @@ class Response : public Message
 		void readCgiHeader();
         void set_cgi_body(const Request & request);
         void reset();
+        bool isEndChunkSent() const;
 };
 
 std::stringstream * errorPage(const StatusCodeException & e);
-static const Config * getLocation(const Request & req, const Config * server);
-static const void handleRequest(const Request & req, const Config * location);
+// static const Config * getLocation(const Request & req, const Config * server);
+// static void handleRequest(const Request & req, const Config * location);
 void error(std::string message);
 #endif

@@ -20,9 +20,9 @@ static const std::string directives[] = {
 static const size_t server_index = 4;
 static const size_t location_index = 10;
 
-static char tokens[] = {'{', '}', ';'};
+// static char tokens[] = {'{', '}', ';'};
 
-static char delimiter;
+// static char delimiter;
 
 static void error(ParseError err, const std::string arg) {
     if (err == UNEXPECTED_SYMBOL) {
@@ -76,7 +76,7 @@ static bool isLocation(const std::string & directive) {
 }
 
 static bool isDirective(const std::string & dir) {
-    for (int i = 0; i < NUM_DIRECTIVES; ++i) {
+    for (size_t i = 0; i < NUM_DIRECTIVES; ++i) {
         if (dir == directives[i]) {
             return true;
         }
@@ -119,7 +119,7 @@ static size_t convertSize(const std::string & str) {
     size_t size = std::atol(str.c_str());
     char measure = std::tolower(str[len - 1]);
     if (isdigit(str[0]) && (isdigit(measure) || measures.find(measure) != std::string::npos)) {
-        for (int i = 0; i < len - 1; ++i) {
+        for (size_t i = 0; i < len - 1; ++i) {
             if (!isdigit(str[i])) {
                 return std::string::npos;
             }
@@ -139,7 +139,7 @@ static size_t convertSize(const std::string & str) {
 }
 
 static bool isnumber(const std::string & number) {
-    for (int i = 0; i < number.length(); ++i) {
+    for (size_t i = 0; i < number.length(); ++i) {
         if (!std::isdigit(number[i])) {
             return false;
         }
@@ -200,7 +200,7 @@ static void parse(std::ifstream & file) {
 
         if (directive[0] == "http_method" && directive.size() > 2) {
             config->methods.clear();
-            for (int i = 1; i < directive.size() - 1; ++i) {
+            for (size_t i = 1; i < directive.size() - 1; ++i) {
                 Method method = getMethodFromName(directive[i]);
                 if (method == UNKNOWN) {
                     error(INVALID_METHOD, directive[i]);
@@ -211,11 +211,11 @@ static void parse(std::ifstream & file) {
             }
         } else if (directive[0] == "index" && directive.size() > 2) {
             config->index.clear();
-            for (int i = 1; i < directive.size() - 1; ++i) {
+            for (size_t i = 1; i < directive.size() - 1; ++i) {
                 config->index.push_back(directive[i]);
             }
         } else if (directive[0] == "error_page" && directive.size() > 3) {
-            for (int i = 1; i < directive.size() - 2; ++i) {
+            for (size_t i = 1; i < directive.size() - 2; ++i) {
                 HttpStatus::StatusCode code = (HttpStatus::StatusCode) std::atoi(directive[i].c_str());
                 if (!isnumber(directive[i]) || !isVadilCode(code)) {
                     error(INVALID_ERROR_CODE, directive[i]);
@@ -297,8 +297,12 @@ void open_config_file(int argc, char *argv[]) {
             // std::string token;
             parse(file);
             file.close();
+            if (servers.empty()) {
+                std::cerr << argv[0] << ": there is no server!" << std::endl;
+                exit(EXIT_FAILURE);
+            }
         } else {
-            std::cerr << argv[0] << ": Can't open file!" << std::endl;
+            std::cerr << argv[0] << ": open(): " << strerror(errno) << std::endl;
             exit(EXIT_FAILURE);
         }
     } else {

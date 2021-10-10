@@ -139,6 +139,8 @@ inline const char * reasonPhrase(StatusCode code)
 	switch (code)
 	{
 
+	case 0: return "None";
+
 	//####### 1xx - Informational #######
 	case 100: return "Continue";
 	case 101: return "Switching Protocols";
