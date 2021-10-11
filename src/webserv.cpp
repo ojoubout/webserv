@@ -91,7 +91,6 @@ int main(int argc, char *argv[]) {
 
 		// examines to all socket & connections if they are ready
 		int pret = poll(&fds.front(), fds.size(), -1);
-	
 		if (pret == -1) {
 			error("poll() failed");
 		}
@@ -130,14 +129,13 @@ int main(int argc, char *argv[]) {
 				bool close = false;
 				Request & request = connection.request;
 				Response & response = connection.response;
-					
 				if (fds[i].revents & POLLIN || request.getBuffer().length() || (response.is_cgi() && !response.isCgiHeaderFinished())) {
 
 					try {
 						if (fds[i].revents & POLLIN || request.getBuffer().length()) {
 							request.setServerConfig(getConnectionServerConfig(connection.parent.getHost(), connection.parent.getPort(), ""));
+
 							request.receive(connection.sock);
-							// debug << "Reading " << std::endl;
 							if (request.isHeadersFinished()) {
 								// debug << "Request Succesful" << std::endl;
 								
@@ -166,6 +164,7 @@ int main(int argc, char *argv[]) {
 						if (e.getStatusCode() == 0) {
 							fds[i].revents = POLLHUP;
 						} else {
+							exit(EXIT_FAILURE);
 							std::cerr << "Caught exception: " << e.getStatusCode() << " " << e.what() << std::endl;
 							response.setServerConfig(getConnectionServerConfig(connection.parent.getHost(), connection.parent.getPort(), ""));
 							response.setErrorPage(e, e.getServer());
@@ -195,7 +194,7 @@ int main(int argc, char *argv[]) {
 					}
 				}
 
-				if (fds[i].revents & POLLOUT && !response.isEndChunkSent()) {
+				if (fds[i].revents & POLLOUT && response.buffer_header.size) {
 					
 					
 					if (response.buffer_body.length() == 0) {

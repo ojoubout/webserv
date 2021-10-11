@@ -18,7 +18,8 @@
 # include "MimeTypes.hpp"
 # include "Config.hpp"
 # include <cstring>
-
+#include <sys/types.h>
+#include <sys/wait.h>
 // #include
 class Config;
 class Request;

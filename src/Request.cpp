@@ -21,6 +21,7 @@ void Request::reset() {
     _parser.str = "";
     _parser.key = "";
     _parser.end = false;
+    _parser.buff.resize(0);
 
     _bparser.len = -1;
     _bparser.cr = false;
@@ -32,7 +33,6 @@ void Request::reset() {
     _http_version = "";
 
     _upload = false;
-
 }
 Request::Request() {
     reset();
@@ -156,15 +156,16 @@ void Request::receive(const Socket & connection) {
     if (_parser.buff.length() == 0) {
         _parser.buff.resize(BUFFER_SIZE);
         bytesRead = connection.recv(buffer, BUFFER_SIZE);
-
         if (bytesRead == 0) {
             _parser.end = false;
+            _parser.buff.resize(0);
             return;
         } else if (bytesRead == -1) {
             throw StatusCodeException(HttpStatus::None, _location);
         }
 
         _parser.buff.setData(buffer, bytesRead);
+
         // write(2, buffer, bytesRead);
     }
     parse();
@@ -184,7 +185,6 @@ bool Request::parse() {
     // char * buff = _parser.buff.data;
     bool end = false;
     char c;
-
     while (_parser.buff.length()) {
         if (_parser.current_stat != _parser.BODY)
             c = _parser.buff.getc();
@@ -200,6 +200,7 @@ bool Request::parse() {
             end = true;
         }
         if ((_parser.key.size() + _parser.str.size()) > max_size[_parser.current_stat]) {
+            debug << _parser.key.size() << " " << _parser.str.size() << " " << _parser.str << " " << _parser.current_stat << std::endl;
             throw StatusCodeException(HttpStatus::BadRequest, _server);
         } else if ((_parser.current_stat == _parser.METHOD && (c == ' ' || end))) {
             _method = getMethodFromName(_parser.str);
