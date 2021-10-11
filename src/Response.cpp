@@ -372,8 +372,8 @@ void	Response::readFile() {
 	}
 
 	if (size == 0) {
-		close(fd[0]);
-		close(fd_body[1]);
+		// close(fd[0]);
+		// close(fd_body[1]);
 		_send_end_chunk = true;
 	}
 	buffer_body.data[size + 7 - 2] = '\r';

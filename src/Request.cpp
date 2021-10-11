@@ -157,7 +157,7 @@ void Request::receive(const Socket & connection) {
         _parser.buff.resize(BUFFER_SIZE);
         bytesRead = connection.recv(buffer, BUFFER_SIZE);
         if (bytesRead == 0) {
-            _parser.end = true;
+            _parser.end = false;
             _parser.buff.resize(0);
             return;
         } else if (bytesRead == -1) {
