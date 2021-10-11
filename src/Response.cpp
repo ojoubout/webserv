@@ -183,7 +183,7 @@ static void deleteDirectoryFiles(DIR * dir, const std::string & path) {
 		}
 
 		if (stat(filepath.c_str(), &st) == -1) {
-			debug << "stat(): " << filepath << ": " << strerror(errno) << std::endl;
+			std::cerr << "stat(): " << filepath << ": " << strerror(errno) << std::endl;
 		}
 
 		if (S_ISDIR(st.st_mode)) {
@@ -191,16 +191,16 @@ static void deleteDirectoryFiles(DIR * dir, const std::string & path) {
 			if ((dirp = opendir(filepath.c_str()))) {
 				deleteDirectoryFiles(dirp, filepath.c_str());
 			} else {
-				debug << "opendir(): " << filepath.c_str() << ": " << strerror(errno) << std::endl;
+				std::cerr << "opendir(): " << filepath.c_str() << ": " << strerror(errno) << std::endl;
 			}
 		} else {
 			if (remove(filepath.c_str()) == -1) {
-				debug << "remove() file: " << filepath.c_str() << ": " << strerror(errno) << std::endl;
+				std::cerr << "remove() file: " << filepath.c_str() << ": " << strerror(errno) << std::endl;
 			}
 		}
 	}
 	if (remove(path.c_str()) == -1) {
-		debug << "remove() dir: " << path.c_str() << ": " << strerror(errno) << std::endl;
+		std::cerr << "remove() dir: " << path.c_str() << ": " << strerror(errno) << std::endl;
 	}
 
 }
@@ -355,21 +355,25 @@ void	Response::readFile() {
 		if (pfd.revents & 0) {
 			return ;
 		}
-		if (pret == -1)
+		if (pret == -1) {
 			error("poll failed");
+		}
 
 	
 		size = read(fd[0], buffer_body.data + 5, buffer_body.size - 7);
 
 		if (size == 0) {
+			// debug << "Close " << fd[0] << std::endl;
 			_is_cgi = false;
-			close(fd[0]);
+			// close(fd[0]);
 		} else if (size == -1) {
 			throw StatusCodeException(HttpStatus::InternalServerError, _location);
 		}
 	}
 
 	if (size == 0) {
+		close(fd[0]);
+		close(fd_body[1]);
 		_send_end_chunk = true;
 	}
 	buffer_body.data[size + 7 - 2] = '\r';

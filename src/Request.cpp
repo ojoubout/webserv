@@ -157,7 +157,7 @@ void Request::receive(const Socket & connection) {
         _parser.buff.resize(BUFFER_SIZE);
         bytesRead = connection.recv(buffer, BUFFER_SIZE);
         if (bytesRead == 0) {
-            _parser.end = false;
+            _parser.end = true;
             _parser.buff.resize(0);
             return;
         } else if (bytesRead == -1) {
@@ -200,7 +200,6 @@ bool Request::parse() {
             end = true;
         }
         if ((_parser.key.size() + _parser.str.size()) > max_size[_parser.current_stat]) {
-            debug << _parser.key.size() << " " << _parser.str.size() << " " << _parser.str << " " << _parser.current_stat << std::endl;
             throw StatusCodeException(HttpStatus::BadRequest, _server);
         } else if ((_parser.current_stat == _parser.METHOD && (c == ' ' || end))) {
             _method = getMethodFromName(_parser.str);
