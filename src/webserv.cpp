@@ -167,6 +167,7 @@ int main(int argc, char *argv[]) {
 							// exit(EXIT_FAILURE);
 							std::cerr << "Caught exception: " << e.getStatusCode() << " " << e.what() << std::endl;
 							response.setServerConfig(getConnectionServerConfig(connection.parent.getHost(), connection.parent.getPort(), ""));
+							response.setEndChunkSent(false);
 							response.setErrorPage(e, e.getServer());
 							request.setHeaderFinished(true);
 							if (e.getStatusCode() >= 400) {
@@ -176,8 +177,9 @@ int main(int argc, char *argv[]) {
 						}
 
 					} catch(const ListingException & e){
-						std::string data = response.listingPage(e);
-						// response.setServerConfig(getConnectionServerConfig(connection.parent.getHost(), connection.parent.getPort(), ""));
+						response.setServerConfig(getConnectionServerConfig(connection.parent.getHost(), connection.parent.getPort(), ""));
+						response.listingPage(e);
+						response.setEndChunkSent(false);
 						request.setHeaderFinished(true);
 						request.setBodyFinished(true);
 					}

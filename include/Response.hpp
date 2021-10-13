@@ -62,7 +62,7 @@ class Response : public Message
         void    readFile();
         std::string getIndexFile(const Config * location, const std::string & filename, const std::string & req_taget);
         void setErrorPage(const StatusCodeException & e, const Config * location);
-        std::string listingPage(const ListingException & e);
+        void listingPage(const ListingException & e);
         bool is_cgi() const ;
         bool isSendingBodyFinished(const Request & request) const;
         bool isCgiHeaderFinished() const;
@@ -70,6 +70,7 @@ class Response : public Message
         void set_cgi_body(const Request & request);
         void reset();
         bool isEndChunkSent() const;
+        void setEndChunkSent(bool isSent);
 };
 
 std::stringstream * errorPage(const StatusCodeException & e);

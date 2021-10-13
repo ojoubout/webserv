@@ -469,10 +469,10 @@ char *getFileCreationTime(const char *path, char *format)
 }
 
 
-std::string Response::listingPage(const ListingException & e)
+void Response::listingPage(const ListingException & e)
 {
 	std::stringstream header("");
-	std::stringstream *body = new std::stringstream("");
+	// std::stringstream *body = _body;
 
 	// _headers["Connection"] = "keep-alive";
 	// _headers["Content-Type"] = "text/html";
@@ -488,11 +488,11 @@ std::string Response::listingPage(const ListingException & e)
 	
 	DIR *dir;
 	struct dirent *ent;
-	*body << "<!DOCTYPE html>\n" ;
-	*body << "<html>\n";
-	*body << "<head><title>Index of " << e.getReqTarget() << "</title></head>\n";
-	*body << "<body bgcolor=\"white\">\n";
-	*body << "<h1>Index of " << e.getReqTarget() << "</h1><hr><pre><a href=\"" << e.getReqTarget().substr(0, e.getReqTarget().find_last_of('/', e.getReqTarget().length() - 2)) << "/\">../</a>\n";
+	*_body << "<!DOCTYPE html>\n" ;
+	*_body << "<html>\n";
+	*_body << "<head><title>Index of " << e.getReqTarget() << "</title></head>\n";
+	*_body << "<body bgcolor=\"white\">\n";
+	*_body << "<h1>Index of " << e.getReqTarget() << "</h1><hr><pre><a href=\"" << e.getReqTarget().substr(0, e.getReqTarget().find_last_of('/', e.getReqTarget().length() - 2)) << "/\">../</a>\n";
 
 	if ((dir = opendir (e.what())) != NULL) {
 		while ((ent = readdir (dir)) != NULL) {
@@ -501,8 +501,8 @@ std::string Response::listingPage(const ListingException & e)
 			std::string file_path = e.getPath() + std::string(ent->d_name);
 			if (!strcmp(".", ent->d_name) || !strcmp("..", ent->d_name) || !(stat(file_path.c_str(), &attr) == 0 && S_ISDIR(attr.st_mode)))
 				continue ;
-			*body << "<a href=\"" << ent->d_name << "/\">" << ent->d_name << "/</a> " << std::setw(69 - strlen(ent->d_name)) << getFileCreationTime(file_path.c_str(), format);
-			*body << "                   -\n";
+			*_body << "<a href=\"" << ent->d_name << "/\">" << ent->d_name << "/</a> " << std::setw(69 - strlen(ent->d_name)) << getFileCreationTime(file_path.c_str(), format);
+			*_body << "                   -\n";
 		}
 		closedir (dir);
 	}
@@ -514,18 +514,18 @@ std::string Response::listingPage(const ListingException & e)
 			std::string file_path = e.getPath() + std::string(ent->d_name);
 			if (!strcmp(".", ent->d_name) || !strcmp("..", ent->d_name) || (stat(file_path.c_str(), &attr) == 0 && S_ISDIR(attr.st_mode)))
 				continue ;
-			*body << "<a href=\"" << ent->d_name << "\">" << ent->d_name << "</a> " << std::setw(70 - strlen(ent->d_name)) << getFileCreationTime(file_path.c_str(), format);
-			*body << std::setw(20);
-			*body << attr.st_size;
-			*body << "\n";
+			*_body << "<a href=\"" << ent->d_name << "\">" << ent->d_name << "</a> " << std::setw(70 - strlen(ent->d_name)) << getFileCreationTime(file_path.c_str(), format);
+			*_body << std::setw(20);
+			*_body << attr.st_size;
+			*_body << "\n";
 		}
 		closedir (dir);
 	}
-	*body << "</pre><hr></body>\n</html>\n";
+	*_body << "</pre><hr></body>\n</html>\n";
 	// header << "Content-Length: " << (*body).str().length() << CRLF << CRLF;
-	header << (*body).str();
-	_body = body;
-	return header.str();
+	// header << (*body).str();
+	// _body = body;
+	// return header.str();
 }
 
 bool Response::is_cgi() const
@@ -674,4 +674,8 @@ void Response::readCgiHeader()
 
 bool Response::isEndChunkSent() const {
 	return _send_end_chunk;
+}
+
+void Response::setEndChunkSent(bool isSent) {
+	_send_end_chunk = isSent;
 }
