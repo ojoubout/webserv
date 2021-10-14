@@ -204,7 +204,7 @@ bool Request::parse() {
         } else if ((_parser.current_stat == _parser.METHOD && (c == ' ' || end))) {
             _method = getMethodFromName(_parser.str);
             if (_method == UNKNOWN) {
-                throw StatusCodeException(HttpStatus::BadRequest, _server);
+                throw StatusCodeException(HttpStatus::NotImplemented, _server);
             }
             _parser.current_stat = _parser.REQUEST_TARGET;
         } else if ((_parser.current_stat == _parser.REQUEST_TARGET && (c == ' ' || end))) {
