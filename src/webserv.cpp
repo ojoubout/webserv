@@ -170,6 +170,7 @@ int main(int argc, char *argv[]) {
 							response.setEndChunkSent(false);
 							response.setErrorPage(e, e.getServer());
 							request.setHeaderFinished(true);
+							request.getBuffer().resize(0);
 							if (e.getStatusCode() >= 400) {
 								response.setHeader("Connection", "close");
 								request.setBodyFinished(true);
