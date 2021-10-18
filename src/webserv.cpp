@@ -215,7 +215,7 @@ int main(int argc, char *argv[]) {
 						}
 					}
 
-					if (fds[i].revents & POLLOUT && response.buffer_header.size && !response.isEndChunkSent()) {
+					if (fds[i].revents & POLLOUT && response.buffer_header.size && (response.buffer_body.length() != 0 || !response.isEndChunkSent())) {
 						
 						
 						if (response.buffer_body.length() == 0) {
@@ -239,9 +239,9 @@ int main(int argc, char *argv[]) {
 							if (response.getHeader("Connection") == "close") {
 								close = true;
 							}
-							if (response.getStatusCode() <= 400 || response.getStatusCode() >= 500) {
+							// if (response.getStatusCode() <= 400 || response.getStatusCode() >= 500) {
 								connection.request.reset();
-							}
+							// }
 							connection.response.reset();
 						}
 					}

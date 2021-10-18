@@ -171,13 +171,13 @@ void Request::receive(const Socket & connection) {
         // write(2, buffer, bytesRead);
     }
     parse();
-    if (_bparser.end && _location) {
+    if (_bparser.end) {
         _body_size = _body->tellp();
         if (_location->upload) {
             debug << _location->uri << " " << _location->upload << std::endl;
             throw StatusCodeException(HttpStatus::Created, _location);
         }
-
+        _parser.end = true;
     }
 }
 
@@ -225,11 +225,11 @@ bool Request::parse() {
             _parser.current_stat = _parser.BODY;
             if (_headers.find("Content-Length") != _headers.end()) {
                 _bparser.len = std::atol(getHeader("Content-Length").c_str());
+                if (_bparser.len == 0) {
+                    _bparser.end = true;
+                }
                 if ((unsigned long)_bparser.len > _location->max_body_size) {
                     throw StatusCodeException(HttpStatus::PayloadTooLarge, _location);
-                }
-                if ((_location->upload && _method == POST) || (unsigned long)_bparser.len > max_size[_parser.BODY]) {
-                    openBodyFile();
                 }
             } else if (_headers.find("Transfer-Encoding") == _headers.end()) {
                 _bparser.end = true;
@@ -241,7 +241,11 @@ bool Request::parse() {
             if (_location->methods.find(_method) == _location->methods.end()) {
                 throw StatusCodeException(HttpStatus::MethodNotAllowed, _location);
             }
-            _parser.end = true;
+            if ((_location->upload && _method == POST) || _bparser.len > (ssize_t)max_size[_parser.BODY]) {
+                openBodyFile();
+            }
+            if (!_location->upload)
+                _parser.end = true;
         } else if ((_parser.current_stat == _parser.HEADER_KEY && (c == ':' || end))) {
             _parser.key = trim(_parser.str);
             _parser.current_stat = _parser.HEADER_VALUE;
@@ -352,7 +356,8 @@ size_t Request::receiveBody() {
 
             _bparser.len -= write_len;
             if (_bparser.len == 0) {
-                setBodyFinished(true);
+                // setBodyFinished(true);
+                _bparser.end = true;
 
                 // return 0;
             }
@@ -360,7 +365,8 @@ size_t Request::receiveBody() {
             throw StatusCodeException(HttpStatus::BadRequest, _server);
         }
     } else {
-        setBodyFinished(true);
+        // setBodyFinished(true);
+        _bparser.end = true;
 
     }
     return 0;
