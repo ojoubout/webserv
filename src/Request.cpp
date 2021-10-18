@@ -33,6 +33,7 @@ void Request::reset() {
     _http_version = "";
 
     _upload = false;
+    // debug << "RESET" << std::endl;
 }
 Request::Request() {
     reset();
@@ -153,6 +154,7 @@ void Request::receive(const Socket & connection) {
     ssize_t bytesRead;
     char buffer[BUFFER_SIZE];
 
+    _bparser.end = false;
     if (_parser.buff.length() == 0) {
         _parser.buff.resize(BUFFER_SIZE);
         bytesRead = connection.recv(buffer, BUFFER_SIZE);
@@ -169,7 +171,7 @@ void Request::receive(const Socket & connection) {
         // write(2, buffer, bytesRead);
     }
     parse();
-    if (_bparser.end) {
+    if (_bparser.end && _location) {
         _body_size = _body->tellp();
         if (_location->upload) {
             debug << _location->uri << " " << _location->upload << std::endl;
@@ -221,7 +223,15 @@ bool Request::parse() {
             _parser.current_stat = _parser.HEADER_KEY;
         } else if ((_parser.current_stat == _parser.HEADER_KEY && _parser.str.empty() && ((_parser.cr && c == '\n') || end))) {
             _parser.current_stat = _parser.BODY;
-            if (_headers.find("Transfer-Encoding") == _headers.end() && _headers.find("Content-Length") == _headers.end()) {
+            if (_headers.find("Content-Length") != _headers.end()) {
+                _bparser.len = std::atol(getHeader("Content-Length").c_str());
+                if ((unsigned long)_bparser.len > _location->max_body_size) {
+                    throw StatusCodeException(HttpStatus::PayloadTooLarge, _location);
+                }
+                if ((_location->upload && _method == POST) || (unsigned long)_bparser.len > max_size[_parser.BODY]) {
+                    openBodyFile();
+                }
+            } else if (_headers.find("Transfer-Encoding") == _headers.end()) {
                 _bparser.end = true;
             }
             if (_headers.find("Host") == _headers.end()) {
@@ -335,29 +345,23 @@ size_t Request::receiveBody() {
         }
     } else if (_headers.find("Content-Length") != _headers.end()) {
         if (isValidDecimal(getHeader("Content-Length"))) {
-            if (_bparser.len == -1) {
-                _bparser.len = std::atol(getHeader("Content-Length").c_str());
-                if ((unsigned long)_bparser.len > _location->max_body_size) {
-                    throw StatusCodeException(HttpStatus::PayloadTooLarge, _location);
-                }
-                if ((_location->upload && _method == POST) || (unsigned long)_bparser.len > max_size[_parser.BODY]) {
-                    openBodyFile();
-                }
-            }
+
             size_t write_len = std::min((size_t)_bparser.len, _parser.buff.length());
             _body->write(_parser.buff.data + _parser.buff.pos, write_len);
             _parser.buff.pos += write_len;
 
             _bparser.len -= write_len;
             if (_bparser.len == 0) {
-                _bparser.end = true;
+                setBodyFinished(true);
+
                 // return 0;
             }
         } else {
             throw StatusCodeException(HttpStatus::BadRequest, _server);
         }
     } else {
-        _bparser.end = true;
+        setBodyFinished(true);
+
     }
     return 0;
 }
@@ -408,6 +412,9 @@ void Request::setHeaderFinished(bool isFinished) {
     _parser.end = isFinished;
 }
 void Request::setBodyFinished(bool isFinished) {
+    if (isFinished) {
+        reset();
+    }
     _bparser.end = isFinished;
 }
 

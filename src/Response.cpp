@@ -39,7 +39,10 @@ void Response::reset() {
 	sent_body = 0;
 	_isCgiHeaderFinished = false;
 	cgiHeader.str("");
-	// _send_end_chunk = false;
+
+	fd_body[1] = -1;
+	fd[0] = -1;
+	_send_end_chunk = false;
 }
 
 // Response::Response(Request const & req, const Config * config) 
@@ -438,7 +441,7 @@ void Response::setErrorPage(const StatusCodeException & e, const Config * locati
 		errPage = new std::fstream();
 		std::string errPath = error_page.find(_status)->second;
 		if (errPath[0] == '/') {
-			errPage->open(errPath);
+			errPage->open(errPath.c_str());
 		} else {
 			std::string filename = location->root;
 
@@ -587,15 +590,15 @@ void Response::set_cgi_body(const Request & request)
 }
 
 void Response::closeFdBody() {
-	if (fd_body[1] > 2) {
+	if (fd_body[1] != -1) {
 		close(fd_body[1]);
-		fd_body[1] = 0;
+		fd_body[1] = -1;
 	}
 }
 void Response::closeFd() {
-	if (fd[0] > 2) {
+	if (fd[0] != -1) {
 		close(fd[0]);
-		fd[0] = 0;
+		fd[0] = -1;
 	}
 }
 

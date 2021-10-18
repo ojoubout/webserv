@@ -96,7 +96,9 @@ int main(int argc, char *argv[]) {
 	while (running) {
 
 		// examines to all socket & connections if they are ready
+		// debug << "Before\n";
 		int pret = poll(&fds.front(), fds.size(), -1);
+		// debug << "After\n";
 		if (pret == -1) {
 			error("poll() failed");
 		}
@@ -116,7 +118,7 @@ int main(int argc, char *argv[]) {
 					new_connection->sock = sock->accept();
 					if (new_connection->sock.getFD() != -1) {
 						// std::cerr << "Socket: " << sock->getHost() << ":" << sock->getPort() << ", ";
-						// std::cerr << "New Connection: " << new_connection->sock.getHost() << ":" << new_connection->sock.getPort() << std::endl;
+						std::cerr << "New Connection: " << new_connection->sock.getHost() << ":" << new_connection->sock.getPort() << std::endl;
 						new_connection->sock.setState(NonBlockingSocket);
 						fds.push_back((pollfd){new_connection->sock.getFD(), POLLIN | POLLOUT, 0});
 						connections.insert(std::make_pair(new_connection->sock.getFD(), new_connection));
@@ -182,11 +184,14 @@ int main(int argc, char *argv[]) {
 								response.setServerConfig(getConnectionServerConfig(connection.parent.getHost(), connection.parent.getPort(), ""));
 								response.setEndChunkSent(false);
 								response.setErrorPage(e, e.getServer());
+								// request.getBuffer().resize(0);
+								if (request.isBodyFinished()) {
+									request.reset();
+								}
 								request.setHeaderFinished(true);
-								request.getBuffer().resize(0);
-								if (e.getStatusCode() >= 400) {
+								if (e.getStatusCode() == 400 || e.getStatusCode() == 413) {
 									response.setHeader("Connection", "close");
-									request.setBodyFinished(true);
+									// request.setBodyFinished(true);
 								}
 							}
 
@@ -210,10 +215,10 @@ int main(int argc, char *argv[]) {
 						}
 					}
 
-					if (fds[i].revents & POLLOUT && response.buffer_header.size) {
+					if (fds[i].revents & POLLOUT && response.buffer_header.size && !response.isEndChunkSent()) {
 						
 						
-						if (response.buffer_body.length() == 0 && request.isBodyFinished()) {
+						if (response.buffer_body.length() == 0) {
 							response.readFile();
 						}
 						if (response.buffer_body.length() || response.buffer_header.length()) {
@@ -234,7 +239,9 @@ int main(int argc, char *argv[]) {
 							if (response.getHeader("Connection") == "close") {
 								close = true;
 							}
-							connection.request.reset();
+							if (response.getStatusCode() <= 400 || response.getStatusCode() >= 500) {
+								connection.request.reset();
+							}
 							connection.response.reset();
 						}
 					}
@@ -243,6 +250,7 @@ int main(int argc, char *argv[]) {
 					close = true;
 				}
 				if (close) {
+					// debug << "Close: " << connection.sock.getFD() << std::endl;
 					connection.sock.close();
 					fds.erase(fds.begin() + i);
 					connections.erase(connection.sock.getFD());
