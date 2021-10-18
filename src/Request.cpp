@@ -224,7 +224,7 @@ bool Request::parse() {
             if (_headers.find("Transfer-Encoding") == _headers.end() && _headers.find("Content-Length") == _headers.end()) {
                 _bparser.end = true;
             }
-                if (_headers.find("Host") == _headers.end()) {
+            if (_headers.find("Host") == _headers.end()) {
                 throw StatusCodeException(HttpStatus::BadRequest, _server);
             }
             checkRequestTarget();
