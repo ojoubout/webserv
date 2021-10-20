@@ -68,7 +68,7 @@ public:
     void setBodyFinished(bool isFinished);
     void receive(const Socket & connection);
     void reset();
-
+    void updateLocation();
 
 
 };

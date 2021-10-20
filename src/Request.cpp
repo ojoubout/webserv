@@ -126,12 +126,14 @@ static const std::string getIndexFile(const Config * location, const std::string
 	throw ListingException(filename, req_taget);
 }
 
-void Request::checkRequestTarget() {
+void Request::updateLocation() {
     _location = getLocationFromRequest(*this, _server);
-
 
 	_filename = getRequestedPath(_request_target, _location, _method);
     _location = getLocationFromRequest(*this, _server);
+}
+
+void Request::checkRequestTarget() {
 
     if (_location->redirect.first != HttpStatus::None) {
 		if (HttpStatus::isRedirection(_location->redirect.first)) {
@@ -175,9 +177,9 @@ void Request::receive(const Socket & connection) {
         _body_size = _body->tellp();
         if (_location->upload) {
             debug << _location->uri << " " << _location->upload << std::endl;
+            _parser.end = true;
             throw StatusCodeException(HttpStatus::Created, _location);
         }
-        _parser.end = true;
     }
 }
 
@@ -223,6 +225,10 @@ bool Request::parse() {
             _parser.current_stat = _parser.HEADER_KEY;
         } else if ((_parser.current_stat == _parser.HEADER_KEY && _parser.str.empty() && ((_parser.cr && c == '\n') || end))) {
             _parser.current_stat = _parser.BODY;
+            if (_headers.find("Host") == _headers.end()) {
+                throw StatusCodeException(HttpStatus::BadRequest, _server);
+            }
+            updateLocation();
             if (_headers.find("Content-Length") != _headers.end()) {
                 _bparser.len = std::atol(getHeader("Content-Length").c_str());
                 if (_bparser.len == 0) {
@@ -233,9 +239,6 @@ bool Request::parse() {
                 }
             } else if (_headers.find("Transfer-Encoding") == _headers.end()) {
                 _bparser.end = true;
-            }
-            if (_headers.find("Host") == _headers.end()) {
-                throw StatusCodeException(HttpStatus::BadRequest, _server);
             }
             checkRequestTarget();
             if (_location->methods.find(_method) == _location->methods.end()) {

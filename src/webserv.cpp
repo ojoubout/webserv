@@ -178,7 +178,7 @@ int main(int argc, char *argv[]) {
 
 							if (e.getStatusCode() == 0) {
 								fds[i].revents = POLLHUP;
-							} else {
+							} else if (response.getStatusCode() == 200) {
 								// exit(EXIT_FAILURE);
 								std::cerr << "Caught exception: " << e.getStatusCode() << " " << e.what() << std::endl;
 								response.setServerConfig(getConnectionServerConfig(connection.parent.getHost(), connection.parent.getPort(), ""));
@@ -193,6 +193,8 @@ int main(int argc, char *argv[]) {
 									response.setHeader("Connection", "close");
 									// request.setBodyFinished(true);
 								}
+							} else {
+								request.setHeaderFinished(false);
 							}
 
 						} catch(const ListingException & e){
