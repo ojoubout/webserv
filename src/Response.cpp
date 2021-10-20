@@ -111,8 +111,8 @@ void Response::handleCGI(Request const & req)
 		close(fd_body[1]);
 		dup2(fd[1], 1);
 		dup2(fd_body[0], 0);
-		close(fd[1]);
-		close(fd_body[0]);
+		// close(fd[1]);
+		// close(fd_body[0]);
 		// write(fd[1], "Hello\n", 6);
 		// TODO: check execve return; 
 		if (execve(ar[0], ar, const_cast<char * const *>(v.data())) == -1)
@@ -579,6 +579,7 @@ void Response::set_cgi_body(const Request & request)
 	// std::cerr  << "sent :" << n << "=>" <<  sent_body << "/" << request.getBodySize() << std::endl;
 	if (n > 0) {
 		ret = write(fd_body[1], buff, n);
+		debug << ret << " " << errno << std::endl;
 		if (ret == 0 || ret == -1) {
 			debug << "2" << std::endl;
 
@@ -630,7 +631,7 @@ void Response::readCgiHeader()
 		int ret = 0;
 		// size_t pos;
 		pollfd pfd = (pollfd){fd[0], POLLIN, 0};
-		int pret = poll(&pfd, 1, -1);
+		int pret = poll(&pfd, 1, 0);
 		if (pfd.revents & 0 || !(pfd.revents & POLLIN)) {
 			return ;
 		}

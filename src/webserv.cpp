@@ -157,21 +157,21 @@ int main(int argc, char *argv[]) {
 								// }
 									// std::cerr << std::boolalpha << response.is_cgi() << " " << !response.isSendingBodyFinished(request) <<
 								// " " << request.getBodySize() <<  std::endl;
-								if (response.is_cgi())
-								{
-									if (!response.isSendingBodyFinished(request)) {
-										response.set_cgi_body(request);
-									}
-									if (response.isSendingBodyFinished(request)) {
-										response.closeFdBody();
-									}
+							}
+							if (response.is_cgi() && request.isBodyFinished())
+							{
+								if (!response.isSendingBodyFinished(request)) {
+									response.set_cgi_body(request);
+								}
+								if (response.isSendingBodyFinished(request)) {
+									response.closeFdBody();
 								}
 							}
 
 							// debug << "CGI Header: " << std::boolalpha << response.isCgiHeaderFinished() << std::endl;
 							// if (request.isHeadersFinished() && (!response.is_cgi() || request.isBodyFinished())) {
 
-							if (response.is_cgi() && !response.isCgiHeaderFinished()) {
+							if (response.is_cgi() && !response.isCgiHeaderFinished() && request.isBodyFinished()) {
 								response.readCgiHeader();
 							}
 						} catch (const StatusCodeException & e) {
