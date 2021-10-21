@@ -369,16 +369,16 @@ void	Response::readFile() {
 		// buffer_body.resize(1024);
 
 		int pret = poll(&pfd, 1, 0);
-		if (pfd.revents & 0) {
+		if (pfd.revents == 0) {
+			buffer_body.resize(0);
 			return ;
 		}
 		if (pret == -1) {
 			error("poll failed");
 		}
-
-	
+		// debug << pret << " " << pfd.revents << std::endl;
 		size = read(fd[0], buffer_body.data + 5, buffer_body.size - 7);
-
+		debug << "bs:" << size << "\n" << std::endl;
 		if (size == 0) {
 			// debug << "Close " << fd[0] << std::endl;
 			_is_cgi = false;
@@ -574,7 +574,7 @@ void Response::set_cgi_body(const Request & request)
 	pollfd pfd = (pollfd){fd_body[1], POLLOUT, 0};
 
 	int pret = poll(&pfd, 1, 0);
-	if (pfd.revents & 0) {
+	if (pfd.revents == 0) {
 		return ;
 	}
 
@@ -608,6 +608,7 @@ void Response::closeFdBody() {
 }
 void Response::closeFd() {
 	if (fd[0] != -1) {
+		debug << "Close FD: " << fd[0] << std::endl;
 		close(fd[0]);
 		fd[0] = -1;
 	}
@@ -642,12 +643,14 @@ void Response::readCgiHeader()
 		// size_t pos;
 		pollfd pfd = (pollfd){fd[0], POLLIN, 0};
 		int pret = poll(&pfd, 1, 0);
-		if (pfd.revents & 0 || !(pfd.revents & POLLIN)) {
+		if (pfd.revents == 0 || !(pfd.revents & POLLIN)) {
 			return ;
 		}
 		if(pret == -1)
 			error("poll failed");
+		debug << pret << " " << pfd.revents << std::endl;
 		ret = read(fd[0], s, 2049);
+		debug << ret << "\n" << s << std::endl;
 
 		if (ret == -1) {
 			throw StatusCodeException(HttpStatus::InternalServerError, _location);
@@ -668,7 +671,7 @@ void Response::readCgiHeader()
 				_isCgiHeaderFinished = true;
 			}
 		}
-		if (isCgiHeaderFinished()) 
+		if (isCgiHeaderFinished())
 		{
 			// buffer_body.setData(temp.substr(pos).c_str(), temp.substr(pos).length());
 			std::string sub = temp.substr(pos);
