@@ -43,13 +43,18 @@ void Response::reset() {
 	fd_body[1] = -1;
 	fd[0] = -1;
 	_send_end_chunk = false;
+
+	_send_header = false;
+	_send_body = false;
+	_is_request_handled = false;
+
 }
 
 // Response::Response(Request const & req, const Config * config) 
 // {
 // }
 
-void Response::handleRequest(Request const & req) {
+void Response::handleRequest(Request const & req, Socket const & sock) {
 	this->_server = req.getServerConfig();
 	this->_location = req.getLocation();
 	// const Config * location = getLocation(req, _server);
@@ -63,18 +68,23 @@ void Response::handleRequest(Request const & req) {
 	if (_server->location.find(Utils::getFileExtension(req.getFilename())) != _server->location.end()) {
 		_is_cgi = true;
 		if (req.isBodyFinished()) {
-			this->handleCGI(req);
+			this->handleCGI(req, sock);
+		} else {
+			return;
 		}
-	}
-	else if (req.getMethod() == GET)
+	} else if (req.getMethod() == GET) {
 		this->handleGetRequest(req);
-	else if (req.getMethod() == POST)
+	} else if (req.getMethod() == POST) {
 		this->handlePostRequest(req);
-	else if (req.getMethod() == DELETE)
+	} else if (req.getMethod() == DELETE) {
 		this->handleDeleteRequest(req);
+	} else {
+		return ;
+	}
+	_is_request_handled = true;
 }
 
-void Response::handleCGI(Request const & req)
+void Response::handleCGI(Request const & req, Socket const & sock)
 {
 	std::string filename = req.getFilename();
 	char buff[101] = {0};
@@ -358,7 +368,7 @@ void	Response::readFile() {
 
 		// buffer_body.resize(1024);
 
-		int pret = poll(&pfd, 1, -1);
+		int pret = poll(&pfd, 1, 0);
 		if (pfd.revents & 0) {
 			return ;
 		}
@@ -702,4 +712,22 @@ bool Response::isEndChunkSent() const {
 
 void Response::setEndChunkSent(bool isSent) {
 	_send_end_chunk = isSent;
+}
+
+void Response::setHeaderSent(bool is_sent) {
+	_send_header = is_sent;
+}
+void Response::setBodySent(bool is_sent) {
+	_send_body = is_sent;
+}
+
+bool Response::isHeaderSent() const {
+	return _send_header;
+}
+bool Response::isBodySent() const {
+	return _send_body;
+}
+
+bool Response::isRequestHandled() const {
+	return _is_request_handled;
 }

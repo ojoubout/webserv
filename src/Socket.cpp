@@ -106,9 +106,10 @@ ssize_t Socket::recv(void *buf, size_t n) const {
 // }
 
 void Socket::send(Response & res) const {
-    Buffer * buffer; 
+    Buffer * buffer;
+    bool    is_header = res.buffer_header.length() != 0;
 
-    if (res.buffer_header.length() != 0) {
+    if (is_header) {
         buffer = &res.buffer_header;
     } else {
         buffer = &res.buffer_body;
@@ -123,6 +124,14 @@ void Socket::send(Response & res) const {
             buffer->pos += bytes;
         } else {
             throw StatusCodeException(HttpStatus::None, NULL);
+        }
+
+        if (buffer->length() == 0) {
+            if (is_header) {
+                res.setHeaderSent(true);
+            } else {
+                res.setBodySent(true);
+            }
         }
     }
     // debug << "------\n";

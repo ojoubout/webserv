@@ -156,7 +156,7 @@ void Request::receive(const Socket & connection) {
     ssize_t bytesRead;
     char buffer[BUFFER_SIZE];
 
-    _bparser.end = false;
+    // _bparser.end = false;
     if (_parser.buff.length() == 0) {
         _parser.buff.resize(BUFFER_SIZE);
         bytesRead = connection.recv(buffer, BUFFER_SIZE);
@@ -165,7 +165,7 @@ void Request::receive(const Socket & connection) {
             _parser.buff.resize(0);
             return;
         } else if (bytesRead == -1) {
-            throw StatusCodeException(HttpStatus::None, _location);
+            throw StatusCodeException(HttpStatus::None, NULL);
         }
 
         _parser.buff.setData(buffer, bytesRead);
@@ -177,7 +177,7 @@ void Request::receive(const Socket & connection) {
         _body_size = _body->tellp();
         if (_location->upload) {
             debug << _location->uri << " " << _location->upload << std::endl;
-            _parser.end = true;
+            // _parser.end = true;
             throw StatusCodeException(HttpStatus::Created, _location);
         }
     }
@@ -359,18 +359,13 @@ size_t Request::receiveBody() {
 
             _bparser.len -= write_len;
             if (_bparser.len == 0) {
-                // setBodyFinished(true);
                 _bparser.end = true;
-
-                // return 0;
             }
         } else {
             throw StatusCodeException(HttpStatus::BadRequest, _server);
         }
     } else {
-        // setBodyFinished(true);
         _bparser.end = true;
-
     }
     return 0;
 }
@@ -421,9 +416,9 @@ void Request::setHeaderFinished(bool isFinished) {
     _parser.end = isFinished;
 }
 void Request::setBodyFinished(bool isFinished) {
-    if (isFinished) {
-        reset();
-    }
+    // if (isFinished) {
+    //     reset();
+    // }
     _bparser.end = isFinished;
 }
 
