@@ -219,7 +219,7 @@ int main(int argc, char *argv[]) {
 							}
 						}
 					}
-					if (response.isEndChunkSent() && request.isBodyFinished()) {
+					if (response.isEndChunkSent() && !response.buffer_body.length() && request.isBodyFinished()) {
 						if (request.getHeader("Connection") == "close") {
 							response.setHeader("Connection", "close");
 						}
