@@ -88,18 +88,21 @@ const std::string getPathFromUri(const std::string & uri) {
 }
 
 static const std::string getRequestedPath(const std::string & target, const Config * location, Method method) {
-	const std::string path = getPathFromUri(target);
+	// const std::string path = getPathFromUri(target);
+    debug << "Path: " << target << std::endl;
 	struct stat buffer;
 
-	std::string requested_path = location->root;
+	std::string requested_path = target;
 
-	requested_path += location->uri != "" ? path.substr(location->uri.length()) : path;
+	// requested_path += location->uri != "" ? path.substr(location->uri.length()) : path;
+    debug << "requested_path: " << location->uri << std::endl;
 	// debug << "SUBSTR: " << location->uri << " " << location->uri.length() << " " << path.substr(location->uri.length()) << std::endl;
 
 	// debug << "Target: " << target << ", Requested File: " << requested_path << std::endl;
-	if (stat(requested_path.c_str(), &buffer) == 0 && S_ISDIR(buffer.st_mode) && method != DELETE) {
+    // std::string 
+	if (stat((location->root + requested_path).c_str(), &buffer) == 0 && S_ISDIR(buffer.st_mode) && method != DELETE) {
         if (target[target.length() - 1] != '/') {
-		    throw StatusCodeException(HttpStatus::MovedPermanently, path + '/', location);
+		    throw StatusCodeException(HttpStatus::MovedPermanently, target + '/', location);
         // } else {
 
         }
@@ -119,7 +122,7 @@ static const std::string getIndexFile(const Config * location, const std::string
 		if (!(buffer.st_mode & S_IROTH))
 			throw StatusCodeException(HttpStatus::Forbidden, location);
 		else
-			return (file);
+			return (location->index[i]);
 	}
 	if (!location->listing)
 		throw StatusCodeException(HttpStatus::Forbidden, location);
@@ -129,7 +132,8 @@ static const std::string getIndexFile(const Config * location, const std::string
 void Request::updateLocation() {
     _location = getLocationFromRequest(*this, _server);
 
-	_filename = getRequestedPath(_request_target, _location, _method);
+	_filename = getRequestedPath(getPathFromUri(_request_target), _location, _method);
+    _file_path = _location->root + _filename;
     _location = getLocationFromRequest(*this, _server);
 }
 
@@ -143,10 +147,12 @@ void Request::checkRequestTarget() {
 		}
 	}
     struct stat fileStat;
-    stat (_filename.c_str(), &fileStat);
-	Utils::fileStat(_filename, fileStat, _location);
+    stat (_file_path.c_str(), &fileStat);
+	Utils::fileStat(_file_path, fileStat, _location);
 	if (S_ISDIR(fileStat.st_mode) && _method != DELETE && !_location->upload) {
-		_filename = getIndexFile(_location, _filename, _request_target);
+		_filename += getIndexFile(_location, _file_path, _request_target);
+        _file_path = _location->root + _filename.substr(1);
+        debug << "Filename: " << _filename << std::endl;
 	}
     _location = getLocationFromRequest(*this, _server);
 
@@ -176,7 +182,6 @@ void Request::receive(const Socket & connection) {
     if (_bparser.end) {
         _body_size = _body->tellp();
         if (_location->upload) {
-            debug << _location->uri << " " << _location->upload << std::endl;
             // _parser.end = true;
             throw StatusCodeException(HttpStatus::Created, _location);
         }
@@ -342,7 +347,6 @@ size_t Request::receiveBody() {
                             openBodyFile();
                         }
 
-                        debug << "chunked size: " << _bparser.len << std::endl;
                     } else if (c != '\r') {
                         _bparser.str += c;
                     }
@@ -380,9 +384,6 @@ void Request::openBodyFile() {
     } else {
         filename << "/tmp/" << std::setfill('0') << std::setw(10) << file_id++;
     }
-
-    debug << "body filename: " << filename.str() << std::endl;
-    debug << "Body: " << body_ss->str() << std::endl;
 
     _body = new std::fstream(filename.str().c_str(), std::fstream::in | std::fstream::out | std::fstream::trunc);
 
@@ -459,6 +460,9 @@ const std::string & Request::getHTTPVersion() const {
     return this->_http_version;
 }
 
+const std::string & Request::getFilePath() const {
+    return _file_path;
+}
 const std::string & Request::getFilename() const {
     return _filename;
 }

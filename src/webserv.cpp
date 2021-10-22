@@ -210,9 +210,7 @@ int main(int argc, char *argv[]) {
 						}
 						if (response.buffer_body.length() || response.buffer_header.length()) {
 							try {
-						    	debug << "BEFORE Body " << response.buffer_body.length() << "\n";
 								connection.sock.send(response);
-						    	debug << "AFTER Body " << response.buffer_body.length() << "\n";
 							} catch (const StatusCodeException & e) {
 								close = true;
 							}
