@@ -100,6 +100,7 @@ void Response::handleCGI(Request const & req, Socket const & sock)
 		std::vector<const char *> v;
 		v.push_back(strdup((std::string("REQUEST_METHOD") + "=" + req.getMethodName()).c_str()));
 		v.push_back(strdup((std::string("PATH") + "=" + (getenv("PATH") ?: "")).c_str()));
+		v.push_back(strdup((std::string("AUTH_TYPE") + "=null").c_str()));
 		v.push_back(strdup((std::string("TERM") + "=" + (getenv("TERM") ?: "")).c_str()));
 		v.push_back(strdup((std::string("HOME") + "=" + (getenv("HOME") ?: "")).c_str()));
 		gethostname(buff, 100);
@@ -112,7 +113,22 @@ void Response::handleCGI(Request const & req, Socket const & sock)
 		v.push_back(strdup((std::string("CONTENT_LENGTH") + "=" + Utils::to_str(req.getBodySize())).c_str()));
 		// std::cerr << "CONTENT_LENGTH : " << req.getBodySize() << " " << req.getBody()->tellg() << std::endl;
 		v.push_back(strdup((std::string("CONTENT_TYPE") + "=" + req.getHeader("Content-Type")).c_str()));
+		v.push_back(strdup((std::string("GATEWAY_INTERFACE") + "=CGI/1.1").c_str()));
+		// std::cerr << "hostname: " << req.getLocation()->port << std::endl;
+		// std::cerr << "filename: " << filename << std::endl;
+		v.push_back(strdup((std::string("PATH_INFO") + "=" + req.getRequestTarget().substr(0, n)).c_str()));
+		v.push_back(strdup((std::string("PATH_TRANSLATED") + "=" + filename).c_str()));
+		v.push_back(strdup((std::string("REMOTE_ADDR") + "=" + sock.getHost()).c_str()));
+		v.push_back(strdup((std::string("REMOTE_HOST") + "=" + req.getHeader("host").substr(0, req.getHeader("host").find_first_of(':'))).c_str()));
+		v.push_back(strdup((std::string("SERVER_NAME") + "=" + req.getLocation()->server_name).c_str()));
+		v.push_back(strdup((std::string("SERVER_PORT") + "=" + Utils::to_str(req.getLocation()->port)).c_str()));
+		v.push_back(strdup((std::string("SERVER_PROTOCOL") + "=HTTP/1.1").c_str()));
+		v.push_back(strdup((std::string("SERVER_SOFTWARE") + "=" + SERVER_NAME).c_str()));
 		// std::cerr << "len : " << length << std::endl;
+		// for (std::multimap<std::string, std::string>::const_iterator it = req.getHeader().begin(); it != req.getHeader().end(); ++it)
+		// {
+		// 	std::cout << "head : " << it->first << " " << it->second << " " <<  req.getServerConfig()->host << "\n";
+		// }
 		v.push_back(strdup((std::string("QUERY_STRING") + "=" + req.getRequestTarget().substr(n)).c_str()));
 		v.push_back(strdup((std::string("HTTP_COOKIE") + "=" + req.getHeader("Cookie")).c_str()));
 		v.push_back(strdup((std::string("REDIRECT_STATUS") + "=").c_str()));

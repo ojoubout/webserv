@@ -146,7 +146,6 @@ int main(int argc, char *argv[]) {
 								request.setServerConfig(getConnectionServerConfig(connection.parent.getHost(), connection.parent.getPort(), ""));
 
 								request.receive(connection.sock);
-								debug << std::boolalpha << request.isBodyFinished() << std::endl;
 								if (request.isHeadersFinished() && !response.isRequestHandled()) {
 
 									response.setServerConfig(getConnectionServerConfig(connection.parent.getHost(), connection.parent.getPort(), request.getHeader("Host")));
