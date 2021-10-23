@@ -121,7 +121,7 @@ void Response::handleCGI(Request const & req, Socket const & sock)
 		v.push_back(strdup((std::string("PATH_TRANSLATED") + "=" + file_path).c_str()));
 		v.push_back(strdup((std::string("REMOTE_ADDR") + "=" + sock.getHost()).c_str()));
 		v.push_back(strdup((std::string("REMOTE_HOST") + "=" + req.getHeader("host").substr(0, req.getHeader("host").find_first_of(':'))).c_str()));
-		debug << req.getHeader("host") << std::endl;
+		// debug << req.getHeader("host") << std::endl;
 		// v.push_back(strdup((std::string("HTTP_HOST") + "=" + "").c_str()));
 		v.push_back(strdup((std::string("SERVER_NAME") + "=" + req.getLocation()->server_name).c_str()));
 		v.push_back(strdup((std::string("SERVER_PORT") + "=" + Utils::to_str(req.getLocation()->port)).c_str()));

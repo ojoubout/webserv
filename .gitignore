@@ -5,4 +5,6 @@
 !/src/*.cpp
 !/include/
 !/include/*.hpp
+!/confs/
+!/confs/*
 !Makefile
