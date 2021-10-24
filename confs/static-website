@@ -1,0 +1,37 @@
+server {
+    listen localhost 8080;
+
+    http_method GET;
+    location / {
+        root /Users/ojoubout/Downloads/revetive/html/;
+        index index.html;
+    }
+
+    location /assets/ {
+        root /Users/ojoubout/Downloads/revetive/assets/;
+    }
+}
+
+server {
+    listen localhost 8081;
+
+    http_method GET;
+    root /Users/ojoubout/Downloads/evolve/;
+    index index.html;
+
+    location / {
+    }
+
+}
+
+server {
+    listen localhost 8081;
+
+    http_method GET;
+    root /Users/ojoubout/Downloads/xtra/;
+    index index.html;
+
+    location / {
+    }
+
+}

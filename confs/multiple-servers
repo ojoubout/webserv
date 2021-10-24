@@ -4,7 +4,7 @@ server {
     http_method GET;
     location / {
         http_method GET DELETE;
-        root /var/www/html/;
+        root /tmp/;
         index index.html;
     }
 }

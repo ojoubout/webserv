@@ -96,16 +96,16 @@ int main(int argc, char *argv[]) {
 	while (running) {
 
 		// examines to all socket & connections if they are ready
-		// debug << "Before\n";
+		debug << "Before " << fds.size() << " " << connections.size() << std::endl;
 		int pret = poll(&fds.front(), fds.size(), -1);
-		// debug << "After\n";
+		debug << "After\n";
 		if (pret == -1) {
 			error("poll() failed");
 		}
 
 		// loop through all sockets & connections
 		int curr_size = fds.size();
-		for (int i = 0; i < curr_size; ++i) {
+		for (int i = 0; i < curr_size && i < 5; ++i) {
 
 			if (fds[i].revents == 0) {
 				continue;

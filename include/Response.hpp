@@ -50,6 +50,7 @@ class Response : public Message
     public:
         Buffer buffer_header;
         Buffer buffer_body;
+        Buffer buffer;
         Response();
         Response(Response const &);
         // Response(Request const &, const Config *);

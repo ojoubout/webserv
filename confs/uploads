@@ -2,7 +2,7 @@ server {
     listen localhost 8080;
 
     http_method GET POST;
-    root /Users/ojoubout/Downloads/revetive/;
+    root /tmp/;
 
     index index.html;
     location / {

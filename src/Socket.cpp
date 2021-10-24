@@ -22,15 +22,15 @@ void Socket::create(int domain, int type, int protocol) {
 
 
 void Socket::setState(TypeSocket type) const {
-    int flags = fcntl(_fd, F_GETFL, 0);
+    // int flags = fcntl(_fd, F_GETFL, 0);
 
-    if (flags == -1) {
-        error("Failed to get socket state");
-    }
+    // if (flags == -1) {
+    //     error("Failed to get socket state");
+    // }
 
-    flags = type ? (flags | O_NONBLOCK) : (flags & ~O_NONBLOCK);
-
-    if (fcntl(_fd, F_SETFL, flags) == -1) {
+    // flags = type ? (flags | O_NONBLOCK) : (flags & ~O_NONBLOCK);
+    (void)type;
+    if (fcntl(_fd, F_SETFL, O_NONBLOCK) == -1) {
         error("Failed to change socket state");
     }
 }
