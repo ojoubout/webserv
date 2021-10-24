@@ -96,9 +96,9 @@ int main(int argc, char *argv[]) {
 	while (running) {
 
 		// examines to all socket & connections if they are ready
-		debug << "Before " << fds.size() << " " << connections.size() << std::endl;
+		// debug << "Before " << fds.size() << " " << connections.size() << std::endl;
 		int pret = poll(&fds.front(), fds.size(), -1);
-		debug << "After\n";
+		// debug << "After\n";
 		if (pret == -1) {
 			error("poll() failed");
 		}
@@ -196,19 +196,17 @@ int main(int argc, char *argv[]) {
 							// request.setBodyFinished(true);
 						}
 
-						if (request.isHeadersFinished() && !response.buffer_header.size && (!response.is_cgi() || response.isCgiHeaderFinished())) {
+						if (request.isHeadersFinished() && !response.buffer.size && (!response.is_cgi() || response.isCgiHeaderFinished())) {
 							std::string data = response.HeadertoString();
-							response.buffer_header.setData(data.c_str(), data.length());
+							response.buffer.setData(data.c_str(), data.length());
 						}
 					}
 
-					if (fds[i].revents & POLLOUT && response.buffer_header.size && (response.buffer_body.length() != 0 || !response.isEndChunkSent())) {
-						
-						
-						if (response.buffer_body.length() == 0) {
+					if (fds[i].revents & POLLOUT && response.buffer.size) {
+						if (!response.isReadBodyFinished()) {
 							response.readFile();
 						}
-						if (response.buffer_body.length() || response.buffer_header.length()) {
+						if (response.buffer.length()) {
 							try {
 								connection.sock.send(response);
 							} catch (const StatusCodeException & e) {
@@ -218,7 +216,7 @@ int main(int argc, char *argv[]) {
 					}
 					// debug << "R: " << std::boolalpha << response.isEndChunkSent() << " " << !response.buffer_body.length() << " " << request.isBodyFinished() << std::endl;
 
-					if (response.isEndChunkSent() && !response.buffer_body.length() && request.isBodyFinished()) {
+					if (response.isEndChunkSent() && !response.buffer.length() && request.isBodyFinished()) {
 						if (request.getHeader("Connection") == "close") {
 							response.setHeader("Connection", "close");
 						}

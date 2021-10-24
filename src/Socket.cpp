@@ -106,32 +106,33 @@ ssize_t Socket::recv(void *buf, size_t n) const {
 // }
 
 void Socket::send(Response & res) const {
-    Buffer * buffer;
-    bool    is_header = res.buffer_header.length() != 0;
+    // Buffer * buffer;
+    // bool    is_header = res.buffer_header.length() != 0;
 
-    if (is_header) {
-        buffer = &res.buffer_header;
-    } else {
-        buffer = &res.buffer_body;
-    }
+    // if (is_header) {
+    //     buffer = &res.buffer_header;
+    // } else {
+    //     buffer = &res.buffer_body;
+    // }
 
     // debug << "------\n";
-    if (buffer->length() > 0) {
+    if (res.buffer.length() > 0) {
         // write(2, buffer->data + buffer->pos, buffer->length());
-        int bytes = ::send(_fd, buffer->data + buffer->pos, buffer->length(), 0);
+        int bytes = ::send(_fd, res.buffer.data + res.buffer.pos, res.buffer.length(), 0);
 
         if (bytes > 0) {
-            buffer->pos += bytes;
+            res.buffer.pos += bytes;
         } else {
             throw StatusCodeException(HttpStatus::None, NULL);
         }
 
-        if (buffer->length() == 0) {
-            if (is_header) {
-                res.setHeaderSent(true);
-            } else {
-                res.setBodySent(true);
-            }
+        if (res.buffer.length() == 0 && res.isReadBodyFinished()) {
+            res.setEndChunkSent(true);
+        //     if (is_header) {
+        //         res.setHeaderSent(true);
+        //     } else {
+        //         res.setBodySent(true);
+        //     }
         }
     }
     // debug << "------\n";

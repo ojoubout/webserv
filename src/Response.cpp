@@ -2,12 +2,12 @@
 #include "debug.hpp"
 #include <algorithm>
 
-Response::Response() : _send_end_chunk(false)
+Response::Response()
 {
 	reset();
 }
 
-Response::Response(Response const & src) : _send_end_chunk(false)
+Response::Response(Response const & src)
 {
 	reset();
 	*this = src;
@@ -20,8 +20,9 @@ Response::~Response(){
 
 Response &Response::operator=(Response const & src)
 {
-	buffer_header = src.buffer_header;
-	buffer_body = src.buffer_body;
+	// buffer_header = src.buffer_header;
+	// buffer_body = src.buffer_body;
+	buffer = src.buffer;
 	_status = src._status;
 	_server = src._server;
 	_is_cgi = src._is_cgi;
@@ -34,8 +35,9 @@ void Response::reset() {
     Message::reset();
 	_is_cgi = false;
 	_status = HttpStatus::StatusCode(200);
-	buffer_header.resize(0);
-	buffer_body.resize(0);
+	// buffer_header.resize(0);
+	// buffer_body.resize(0);
+	buffer.resize(0);
 	sent_body = 0;
 	_isCgiHeaderFinished = false;
 	cgiHeader.str("");
@@ -44,9 +46,10 @@ void Response::reset() {
 	fd[0] = -1;
 	_send_end_chunk = false;
 
-	_send_header = false;
-	_send_body = false;
+	// _send_header = false;
+	// _send_body = false;
 	_is_request_handled = false;
+	_read_body_finished = false;
 
 }
 
@@ -372,14 +375,18 @@ std::string Response::HeadertoString()
 
 void	Response::readFile() {
 
+	char buff[BUFFER_SIZE];
+
 	std::stringstream ss;
 	ssize_t size;
-
-	buffer_body.resize(1024 + 7);
+	// size_t bsize = buffer.length();
+	// size = buffer.length() > 1024 ? buffer.length() : 1024;
+	// buffer.resize(bsize + 1024 + 7);
 	if (!_is_cgi || (getBodySize() != 0 && getBodySize() != std::string::npos))
 	{
-		_body->read(buffer_body.data + 5, buffer_body.size - 7);
-		size = ((*_body) ? buffer_body.size - 7 : _body->gcount());    
+		_body->read(buff, BUFFER_SIZE);
+		size = ((*_body) ? BUFFER_SIZE : _body->gcount()); 
+		// buffer.push(buff, size);
 	}
 	else
 	{
@@ -389,14 +396,15 @@ void	Response::readFile() {
 
 		int pret = poll(&pfd, 1, 0);
 		if (pfd.revents == 0) {
-			buffer_body.resize(0);
+			// buffer.resize(bsize);
 			return ;
 		}
 		if (pret == -1) {
 			error("poll failed");
 		}
 		// debug << pret << " " << pfd.revents << std::endl;
-		size = read(fd[0], buffer_body.data + 5, buffer_body.size - 7);
+		size = read(fd[0], buff, BUFFER_SIZE);
+		// buffer.push(buff, size);
 		if (size == 0) {
 			// debug << "Close " << fd[0] << std::endl;
 			_is_cgi = false;
@@ -410,16 +418,27 @@ void	Response::readFile() {
 	if (size == 0) {
 		// close(fd[0]);
 		// close(fd_body[1]);
-		_send_end_chunk = true;
+		_read_body_finished = true;
 	}
-	buffer_body.data[size + 7 - 2] = '\r';
-	buffer_body.data[size + 7 - 1] = '\n';
+	// buffer.push()
+	// buffer.push("\r\n", 2);
+	// buffer.data[size + 7 - 2] = '\r';
+	// buffer.data[size + 7 - 1] = '\n';
 
 	ss << std::setfill('0') << std::setw(3) << std::hex << size << CRLF;
-
-	std::memcpy(buffer_body.data, ss.str().c_str(), ss.str().length());
-	buffer_body.resize(ss.str().length() + size + 2);
+	buffer.push(ss.str().c_str(), ss.str().length());
+	if (size) {
+		buffer.push(buff, size);
+	}
+	buffer.push("\r\n", 2);
+	if (size && size < BUFFER_SIZE && buffer.size < BUFFER_SIZE) {
+		readFile();
+	}
+	// std::memcpy(buffer.data, ss.str().c_str(), ss.str().length());
+	// buffer.resize(ss.str().length() + size + 2);
 }
+
+
 
 std::stringstream * errorTemplate(const StatusCodeException & e) {
 	std::stringstream * alloc = new std::stringstream("");
@@ -739,18 +758,18 @@ void Response::setEndChunkSent(bool isSent) {
 	_send_end_chunk = isSent;
 }
 
-void Response::setHeaderSent(bool is_sent) {
-	_send_header = is_sent;
-}
-void Response::setBodySent(bool is_sent) {
-	_send_body = is_sent;
-}
+// void Response::setHeaderSent(bool is_sent) {
+// 	_send_header = is_sent;
+// }
+// void Response::setBodySent(bool is_sent) {
+// 	_send_body = is_sent;
+// }
 
-bool Response::isHeaderSent() const {
-	return _send_header;
-}
-bool Response::isBodySent() const {
-	return _send_body;
+// bool Response::isHeaderSent() const {
+// 	return _send_header;
+// }
+bool Response::isReadBodyFinished() const {
+	return _read_body_finished;
 }
 
 bool Response::isRequestHandled() const {

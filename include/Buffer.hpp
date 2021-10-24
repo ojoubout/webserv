@@ -55,8 +55,8 @@ public:
         char *new_data = new char[new_size];
 
         if (data) {
-            size_t copyn = size > new_size ? new_size : size;
-            std::memcpy(new_data, data, copyn);
+            size_t copyn = length() > new_size ? new_size : length();
+            std::memcpy(new_data, data + pos, copyn);
             delete [] data;
         }
         
@@ -81,6 +81,14 @@ public:
         buff = data + pos;
         pos += size;
         return size <= length() ? size : length();
+    }
+
+    void push(const char * s, size_t len) {
+        // if (len > size - pos)
+        size_t buff_len = length();
+        resize(len + buff_len);
+        std::memcpy(data + buff_len, s, len);
+        // return 0;
     }
 
     char getc() {

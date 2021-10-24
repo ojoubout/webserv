@@ -41,15 +41,16 @@ class Response : public Message
         bool					_isCgiHeaderFinished;
 		std::stringstream		cgiHeader;
 
+        bool _read_body_finished;
         bool _send_end_chunk;
-        bool _send_header;
-        bool _send_body;
+        // bool _send_header;
+        // bool _send_body;
 
         bool _is_request_handled;
         // const std::string getRequestedPath(const Request &, const Config *);
     public:
-        Buffer buffer_header;
-        Buffer buffer_body;
+        // Buffer buffer_header;
+        // Buffer buffer_body;
         Buffer buffer;
         Response();
         Response(Response const &);
@@ -79,11 +80,13 @@ class Response : public Message
         void closeFdBody();
         void closeFd();
 
-        void setHeaderSent(bool is_sent);
-        void setBodySent(bool is_sent);
+        // void setHeaderSent(bool is_sent);
+        // void setBodySent(bool is_sent);
 
-        bool isHeaderSent() const;
-        bool isBodySent() const;
+        // bool isHeaderSent() const;
+        bool isReadBodyFinished() const;
+
+        // bool isBodySent() const;
         
         bool isRequestHandled() const;
 
