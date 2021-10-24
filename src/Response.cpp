@@ -702,7 +702,7 @@ void Response::readCgiHeader()
 				size_t end = line.find_first_of(':');
 				if (start == std::string::npos || end == std::string::npos)
 					continue ;
-				std::string str = line.substr(line.find_first_of(':') + 2);
+				std::string str = line.substr(line.find_first_of(':') + 1);
 				insert_header(line.substr(0, start), trim(str));
 				// _headers[line.substr(0, start)] = trim(str);
 			}
