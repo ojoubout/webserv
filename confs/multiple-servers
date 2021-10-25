@@ -1,5 +1,5 @@
 server {
-    listen 0.0.0.0 8080;
+    listen 0.0.0.0 8082;
     
     http_method GET;
     location / {
@@ -13,7 +13,8 @@ server {
     
     server_name hello.com;
     error_page 404 400 /tmp/error/404.html;
-    http_method GET POST;
+
+    http_method GET DELETE;
     root /tmp/;
 
     location / {

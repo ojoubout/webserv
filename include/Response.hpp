@@ -63,6 +63,8 @@ class Response : public Message
         bool is_cgi() const ;
         bool isSendingBodyFinished(const Request & request) const;
         bool isCgiHeaderFinished() const;
+        void setCgiHeaderFinished(bool stat);
+
 		void readCgiHeader();
         void set_cgi_body(const Request & request);
         void reset();

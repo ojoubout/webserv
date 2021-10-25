@@ -116,8 +116,10 @@ void Response::handleCGI(Request const & req, Socket const & sock)
 		close(fd_body[1]);
 		dup2(fd[1], 1);
 		dup2(fd_body[0], 0);
-		if (execve(ar[0], ar, const_cast<char * const *>(v.data())) == -1)
+		if (execve(ar[0], ar, const_cast<char * const *>(v.data())) == -1) {
+			std::cerr << "Child Closed\n";
 			exit(42);
+		}
 	}
 	close(fd[1]);
 	close(fd_body[0]);
@@ -507,6 +509,11 @@ bool Response::isCgiHeaderFinished() const
 	return _isCgiHeaderFinished;
 }
 
+void Response::setCgiHeaderFinished(bool stat)
+{
+	_isCgiHeaderFinished = stat;
+}
+
 void Response::readCgiHeader()
 {
 	std::string temp;
@@ -514,10 +521,13 @@ void Response::readCgiHeader()
 
 	int status = 0;
 	int ret = waitpid(pid, &status, WNOHANG);
+	// std::cerr << "ret: " << ret << "\n";
+
 	if (ret == pid && WEXITSTATUS(status) == 42) {
 		debug << "3" << std::endl;
 		throw StatusCodeException(HttpStatus::InternalServerError, _location);
 	}
+	// exit(EXIT_SUCCESS);
 	if (!isCgiHeaderFinished())
 	{
 		char s[2050] = {0};
@@ -531,7 +541,7 @@ void Response::readCgiHeader()
 		}
 		if(pret == -1)
 			error("poll failed");
-		debug << pret << " " << pfd.revents << std::endl;
+		// debug << pret << " " << pfd.revents << std::endl;
 		ret = read(fd[0], s, 2049);
 
 		if (ret == -1) {

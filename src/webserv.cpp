@@ -32,8 +32,6 @@ void setup_server(Config & conf) {
 void handle_signal(int sig) {
 	debug << "SIGNAL " << sig << std::endl;
 }
-	clock_t total_time_in_poll = 0;
-	clock_t total_time_in_loop = 0;	
 	
 void exit_program(int sig) {
 	(void)sig;
@@ -45,7 +43,6 @@ void exit_program(int sig) {
 			delete it->socket;
 		}
 	}
-	printf ("poll: (%f seconds) loop: %f seconds .\n",((float)total_time_in_poll)/CLOCKS_PER_SEC, ((float)total_time_in_loop)/CLOCKS_PER_SEC);
 	return exit(EXIT_SUCCESS);
 }
 
@@ -96,11 +93,7 @@ int main(int argc, char *argv[]) {
 
 		// examines to all socket & connections if they are ready
   		
-		clock_t pre_poll = clock();
-
 		int pret = poll(&fds.front(), fds.size(), -1);
-		clock_t post_poll = clock();
-		total_time_in_poll += post_poll - pre_poll;
 
 		if (pret == -1) {
 			error("poll() failed");
@@ -110,7 +103,7 @@ int main(int argc, char *argv[]) {
 
 		// loop through all sockets & connections
 		int curr_size = fds.size();
-		for (int i = 0; i < curr_size && i < 5; ++i) {
+		for (int i = 0; i < curr_size; ++i) {
 
 			if (fds[i].revents == 0) {
 				continue;
@@ -176,6 +169,7 @@ int main(int argc, char *argv[]) {
 								response.setEndChunkSent(false);
 								response.setErrorPage(e, e.getServer());
 								request.setHeaderFinished(true);
+								response.setCgiHeaderFinished(true);
 								if (e.getStatusCode() == 400 || e.getStatusCode() == 413) {
 									response.setHeader("Connection", "close");
 								}
@@ -233,8 +227,6 @@ int main(int argc, char *argv[]) {
 				}
 			}
 		}
-		clock_t inner_loop = clock();
-		total_time_in_loop += inner_loop - post_poll;
 	}
 
 	std::cerr << "Program Closing" << std::endl;

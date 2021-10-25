@@ -44,7 +44,7 @@ std::string & trim(std::string & str) {
 
     if (first == std::string::npos)
         first = 0;
-    str = str.substr(first, last + 1);
+    str = str.substr(first, last - first + 1);
     return str;
 }
 
@@ -100,11 +100,18 @@ static const std::string getIndexFile(const Config * location, const std::string
 }
 
 void Request::updateLocation() {
-    _location = getLocationFromRequest(*this, _server);
+    struct stat fileStat;
 
 	_filename = getRequestedPath(getPathFromUri(_request_target), _location);
     _file_path = _location->root + _filename;
-    _location = getLocationFromRequest(*this, _server);
+    stat (_file_path.c_str(), &fileStat);
+    if (access( _file_path.c_str(), F_OK) || S_ISDIR(fileStat.st_mode)) {
+        _location = getLocationFromRequest(*this, _server);
+
+        _filename = getRequestedPath(getPathFromUri(_request_target), _location);
+        _file_path = _location->root + _filename;
+        _location = getLocationFromRequest(*this, _server);
+    }
 }
 
 void Request::checkRequestTarget() {
@@ -126,6 +133,7 @@ void Request::checkRequestTarget() {
         }
 	}
 
+    debug << _file_path << std::endl;
     if (_method != DELETE) {
 	    Utils::fileStat(_file_path, fileStat, _location);
     }
@@ -226,10 +234,10 @@ bool Request::parse() {
             } else if (_headers.find("Transfer-Encoding") == _headers.end()) {
                 _bparser.end = true;
             }
-            checkRequestTarget();
             if (_location->methods.find(_method) == _location->methods.end()) {
                 throw StatusCodeException(HttpStatus::MethodNotAllowed, _location);
             }
+            checkRequestTarget();
             if ((_location->upload && _method == POST) || _bparser.len > (ssize_t)max_size[_parser.BODY]) {
                 openBodyFile();
             }

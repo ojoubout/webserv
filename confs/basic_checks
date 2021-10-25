@@ -1,0 +1,31 @@
+server {
+    listen localhost 8081;
+
+    root tests/basic_checks/;
+
+    http_method GET;
+    location / {
+        listing on;
+    }
+    location /get {
+        index index.html;
+        http_method GET;
+    }
+    location /post {
+        index index.html;
+        http_method POST;
+    }
+
+    location /delete {
+        http_method DELETE;
+        root tests/basic_checks/delete/;
+    }
+
+    location /red {
+        redirect 307 /dir;
+    }
+
+    location /google {
+        redirect 307 http://www.google.com;
+    }
+}

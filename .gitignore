@@ -7,4 +7,6 @@
 !/include/*.hpp
 !/confs/
 !/confs/*
+!/tests/
+!/tests/*
 !Makefile
