@@ -1,4 +1,4 @@
-/**
+/*
 
 !.gitignore
 !/src/
@@ -7,6 +7,5 @@
 !/include/*.hpp
 !/confs/
 !/confs/*
-!/tests/
-!/tests/*
+!tests
 !Makefile
