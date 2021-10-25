@@ -22,15 +22,7 @@ void Socket::create(int domain, int type, int protocol) {
 
 
 void Socket::setState(TypeSocket type) const {
-    // int flags = fcntl(_fd, F_GETFL, 0);
-
-    // if (flags == -1) {
-    //     error("Failed to get socket state");
-    // }
-
-    // flags = type ? (flags | O_NONBLOCK) : (flags & ~O_NONBLOCK);
-    (void)type;
-    if (fcntl(_fd, F_SETFL, O_NONBLOCK) == -1) {
+    if (fcntl(_fd, F_SETFL, type) == -1) {
         error("Failed to change socket state");
     }
 }
@@ -76,7 +68,6 @@ const sockaddr_in & Socket::getAddress() const {
 
 void Socket::close() const {
     if (_fd != -1) {
-        // std::cerr << "Close Socket" << std::endl;
         ::close(_fd);
     }
 }
@@ -98,26 +89,8 @@ ssize_t Socket::recv(void *buf, size_t n) const {
     return ::recv(_fd, buf, n, 0);
 }
 
-// void Socket::send(std::vector<char> vec) const {
-//     int bytes = ::send(_fd, vec.data(), vec.size(), 0);
-//     if (bytes == -1) {
-//         error("Failed to send response");
-//     }
-// }
-
 void Socket::send(Response & res) const {
-    // Buffer * buffer;
-    // bool    is_header = res.buffer_header.length() != 0;
-
-    // if (is_header) {
-    //     buffer = &res.buffer_header;
-    // } else {
-    //     buffer = &res.buffer_body;
-    // }
-
-    // debug << "------\n";
     if (res.buffer.length() > 0) {
-        // write(2, buffer->data + buffer->pos, buffer->length());
         int bytes = ::send(_fd, res.buffer.data + res.buffer.pos, res.buffer.length(), 0);
 
         if (bytes > 0) {
@@ -128,19 +101,8 @@ void Socket::send(Response & res) const {
 
         if (res.buffer.length() == 0 && res.isReadBodyFinished()) {
             res.setEndChunkSent(true);
-        //     if (is_header) {
-        //         res.setHeaderSent(true);
-        //     } else {
-        //         res.setBodySent(true);
-        //     }
         }
     }
-    // debug << "------\n";
-
-    // if (res.buffer_body.length() == 0 && res.buffer_body.size != 0) {
-    //     // write(2, "\r\n", 2);
-    //     ::send(_fd, "\r\n", 2, 0);
-    // }
 }
 
 void Socket::error(std::string message) const {

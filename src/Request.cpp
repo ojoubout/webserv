@@ -33,26 +33,10 @@ void Request::reset() {
     _http_version = "";
 
     _upload = false;
-    // debug << "RESET" << std::endl;
 }
 Request::Request() {
     reset();
 }
-
-// Request::Request(const Socket & connection) throw(StatusCodeException) {
-
-//     reset();
-
-//     size_t max_request_size = 16*1024;
-
-//     receive(connection);
-
-//     debug << "Body: " << ((std::stringstream *)_body)->str() << "|" << std::endl;
-// }
-
-// Request::Request(const Request & req) {
-//     *this = req;
-// }
 
 std::string & trim(std::string & str) {
     size_t first = str.find_first_not_of(" \n\r\t");
@@ -88,24 +72,11 @@ const std::string getPathFromUri(const std::string & uri) {
 }
 
 static const std::string getRequestedPath(const std::string & target, const Config * location) {
-	// const std::string path = getPathFromUri(target);
-    // debug << "Path: " << target << std::endl;
-
 	std::string requested_path = "";
     std::string file_path = location->root;
 	requested_path += "/" + target.substr(location->uri.length());
-    // debug << "requested_path: " << location->uri << std::endl;
-	// debug << "SUBSTR: " << location->uri << " " << location->uri.length() << " " << path.substr(location->uri.length()) << std::endl;
-    file_path += requested_path;
-	// debug << "Target: " << target << ", Requested File: " << requested_path << std::endl;
-    // std::string 
-	// if (stat((file_path).c_str(), &buffer) == 0 && S_ISDIR(buffer.st_mode) && method != DELETE) {
-    //     if (file_path[file_path.length() - 1] != '/') {
-	// 	    throw StatusCodeException(HttpStatus::MovedPermanently, target + '/', location);
-    //     // } else {
 
-    //     }
-	// }
+    file_path += requested_path;
 
 	return requested_path;
 }
@@ -162,7 +133,6 @@ void Request::checkRequestTarget() {
 	if (S_ISDIR(fileStat.st_mode) && _method != DELETE && !_location->upload) {
 		_filename += getIndexFile(_location, _file_path, _request_target);
         _file_path = _location->root + _filename.substr(1);
-        // debug << "Filename: " << _filename << std::endl;
 	}
     if (_method != DELETE) {
 	    Utils::fileStat(_file_path, fileStat, _location);
@@ -175,7 +145,6 @@ void Request::receive(const Socket & connection) {
     ssize_t bytesRead;
     char buffer[BUFFER_SIZE];
 
-    // _bparser.end = false;
     if (_parser.buff.length() == 0) {
         _parser.buff.resize(BUFFER_SIZE);
         bytesRead = connection.recv(buffer, BUFFER_SIZE);
@@ -189,23 +158,17 @@ void Request::receive(const Socket & connection) {
 
         _parser.buff.setData(buffer, bytesRead);
 
-        // write(2, buffer, bytesRead);
-        // debug << connection.getHost() << ":" << connection.getPort() << std::endl;
     }
     parse();
     if (_bparser.end) {
         _body_size = _body->tellp();
         if (_location->upload) {
-            // _parser.end = true;
             throw StatusCodeException(HttpStatus::Created, _location);
         }
     }
 }
 
 bool Request::parse() {
-    // size_t i = _parser.buff.pos;
-    // size_t size = _parser.buff.size;
-    // char * buff = _parser.buff.data;
     bool end = false;
     char c;
     while (_parser.buff.length()) {
@@ -244,6 +207,10 @@ bool Request::parse() {
             _parser.current_stat = _parser.HEADER_KEY;
         } else if ((_parser.current_stat == _parser.HEADER_KEY && _parser.str.empty() && ((_parser.cr && c == '\n') || end))) {
             _parser.current_stat = _parser.BODY;
+            debug << _request_target << std::endl;
+            if (_request_target == "/assets/css/bootstrap.css.map") {
+                debug << _request_target << std::endl;
+            }
             if (_headers.find("Host") == _headers.end()) {
                 throw StatusCodeException(HttpStatus::BadRequest, _server);
             }
@@ -289,10 +256,7 @@ bool Request::parse() {
         }
         if (_parser.current_stat == _parser.BODY) {
             receiveBody();
-            // i += s;
-            // if (s == 0) {
             break;
-            // }
         } 
         _parser.cr = false;
         _parser.str.clear();
@@ -322,7 +286,6 @@ bool isValidDecimal(const std::string decimal) {
 }
 
 size_t Request::receiveBody() {
-    // int i = 0;
     char c = -1;
     if (_headers.find("Transfer-Encoding") != _headers.end() && getHeader("Transfer-Encoding") == "chunked") {
         while (_parser.buff.length()) {
@@ -331,7 +294,6 @@ size_t Request::receiveBody() {
                 _body->write(_parser.buff.data + _parser.buff.pos, write_len);
                 _parser.buff.pos += write_len - 1;
                 _bparser.len -= write_len;
-                // i += write_len - 1;
             } else {
                 c = _parser.buff.getc();
                 if (_bparser.len == 0 && _bparser.cr && c == '\n') {
@@ -431,33 +393,8 @@ void Request::setHeaderFinished(bool isFinished) {
     _parser.end = isFinished;
 }
 void Request::setBodyFinished(bool isFinished) {
-    // if (isFinished) {
-    //     reset();
-    // }
     _bparser.end = isFinished;
 }
-
-// Request::Request(const std::string & message) throw(StatusCodeException) : Message(message) {
-//     size_t start = 0;
-//     size_t end;
-
-//     for (int i = 0; i < 3; ++i) {
-//         end = _start_line.find_first_of(' ', start);
-//         std::string token = _start_line.substr(start, end - start);
-//         start = _start_line.find_first_not_of(' ', end);
-//         if (i == 0) {
-//             _method = getMethodFromName(token);
-//         } else if (i == 1) {
-//             _request_target = token;
-//         } else {
-//             _http_version = token;
-//         }
-//     }
-
-//     if (_request_target.empty() || _http_version != "HTTP/1.1") {
-//         throw StatusCodeException(HttpStatus::BadRequest);
-//     }
-// }
 
 Request::~Request() {
 }

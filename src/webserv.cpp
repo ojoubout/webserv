@@ -1,6 +1,5 @@
 #include "webserv.hpp"
-
-// std::vector<Socket> sockets;
+#include <time.h>       /* clock_t, clock, CLOCKS_PER_SEC */
 
 static std::vector<pollfd> fds;
 
@@ -33,7 +32,9 @@ void setup_server(Config & conf) {
 void handle_signal(int sig) {
 	debug << "SIGNAL " << sig << std::endl;
 }
-
+	clock_t total_time_in_poll = 0;
+	clock_t total_time_in_loop = 0;	
+	
 void exit_program(int sig) {
 	(void)sig;
 	running = false;
@@ -44,6 +45,7 @@ void exit_program(int sig) {
 			delete it->socket;
 		}
 	}
+	printf ("poll: (%f seconds) loop: %f seconds .\n",((float)total_time_in_poll)/CLOCKS_PER_SEC, ((float)total_time_in_loop)/CLOCKS_PER_SEC);
 	return exit(EXIT_SUCCESS);
 }
 
@@ -68,12 +70,7 @@ Socket * socketExists(const std::vector<Config>::iterator & curr_it) {
 
 
 int main(int argc, char *argv[]) {
-	// std::map<int, Response*> responses;
-	// std::map<int, Request*> requests;
-	// std::map<int, Socket> connections;
 	open_config_file(argc, argv);
-
-	// std::cerr << servers[0].host << " " << htonl(inet_addr(servers[0].host.c_str())) << ":" << servers[0].port << std::endl;
 
 	for (std::vector<Config>::iterator it = servers.begin(); it != servers.end(); ++it) {
 		Socket * sock = socketExists(it);
@@ -93,14 +90,22 @@ int main(int argc, char *argv[]) {
 	signal(SIGINT, exit_program);
 	signal(SIGTERM, exit_program);
 
+
+
 	while (running) {
 
 		// examines to all socket & connections if they are ready
-		// debug << "Before " << fds.size() << " " << connections.size() << std::endl;
+  		
+		clock_t pre_poll = clock();
+
 		int pret = poll(&fds.front(), fds.size(), -1);
-		// debug << "After\n";
+		clock_t post_poll = clock();
+		total_time_in_poll += post_poll - pre_poll;
+
 		if (pret == -1) {
 			error("poll() failed");
+		} else if (pret == 0) {
+			continue;
 		}
 
 		// loop through all sockets & connections
@@ -115,7 +120,6 @@ int main(int argc, char *argv[]) {
 				Connection * new_connection = new Connection(*sock);
 				new_connection->sock = sock->accept();
 				if (new_connection->sock.getFD() != -1) {
-					// std::cerr << "Socket: " << sock->getHost() << ":" << sock->getPort() << ", ";
 					std::cerr << "New Connection: " << new_connection->sock.getHost() << ":" << new_connection->sock.getPort() << std::endl;
 					new_connection->sock.setState(NonBlockingSocket);
 					fds.push_back((pollfd){new_connection->sock.getFD(), POLLIN | POLLOUT, 0});
@@ -166,21 +170,15 @@ int main(int argc, char *argv[]) {
 
 							if (e.getStatusCode() == 0) {
 								fds[i].revents = POLLHUP;
-							} else /*if (response.getStatusCode() == 200) */{
+							} else {
 								std::cerr << "Caught exception: " << e.getStatusCode() << " " << e.what() << std::endl;
 								response.setServerConfig(getConnectionServerConfig(connection.parent.getHost(), connection.parent.getPort(), request.getHeader("Host")));
 								response.setEndChunkSent(false);
 								response.setErrorPage(e, e.getServer());
-								// if (request.isBodyFinished()) {
-								// 	request.reset();
-								// }
 								request.setHeaderFinished(true);
 								if (e.getStatusCode() == 400 || e.getStatusCode() == 413) {
 									response.setHeader("Connection", "close");
-									// request.setBodyFinished(true);
 								}
-							// } else {
-								// request.setHeaderFinished(false);
 							}
 
 						} catch(const ListingException & e){
@@ -188,7 +186,6 @@ int main(int argc, char *argv[]) {
 							response.listingPage(e);
 							response.setEndChunkSent(false);
 							request.setHeaderFinished(true);
-							// request.setBodyFinished(true);
 						}
 
 						if (request.isHeadersFinished() && !response.buffer.size && (!response.is_cgi() || response.isCgiHeaderFinished())) {
@@ -209,8 +206,6 @@ int main(int argc, char *argv[]) {
 							}
 						}
 					}
-					// debug << "R: " << std::boolalpha << response.isEndChunkSent() << " " << !response.buffer_body.length() << " " << request.isBodyFinished() << std::endl;
-
 					if (response.isEndChunkSent() && !response.buffer.length() && request.isBodyFinished()) {
 						if (request.getHeader("Connection") == "close") {
 							response.setHeader("Connection", "close");
@@ -220,17 +215,15 @@ int main(int argc, char *argv[]) {
 						}
 						response.closeFd();
 						response.closeFdBody();
-						// debug << "RESET\n";
 						connection.request.reset();
 						connection.response.reset();
-						// exit(EXIT_SUCCESS);
 					}
 				} else {
 					debug << "POLLHUP " << connection.sock.getFD() << std::endl;
 					close = true;
 				}
 				if (close) {
-					// debug << "Close: " << connection.sock.getFD() << std::endl;
+					debug << "Close: " << connection.sock.getFD() << " " << connection.sock.getHost() << ":" << connection.sock.getPort() << std::endl;
 					connection.sock.close();
 					fds.erase(fds.begin() + i);
 					connections.erase(connection.sock.getFD());
@@ -240,14 +233,11 @@ int main(int argc, char *argv[]) {
 				}
 			}
 		}
+		clock_t inner_loop = clock();
+		total_time_in_loop += inner_loop - post_poll;
 	}
 
 	std::cerr << "Program Closing" << std::endl;
-	// Bind the socket to a IP / port
-	// Mark the socket for listening in
-	// Accept a call
-	// Close the listening socket
-	// While receiving - display message, echo message
-	// Close socket
+
 	return 0;
 }
