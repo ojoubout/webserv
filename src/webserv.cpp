@@ -164,7 +164,7 @@ int main(int argc, char *argv[]) {
 							if (e.getStatusCode() == 0) {
 								fds[i].revents = POLLHUP;
 							} else {
-								std::cerr << "Caught exception: " << e.getStatusCode() << " " << e.what() << std::endl;
+								// std::cerr << "Caught exception: " << e.getStatusCode() << " " << e.what() << std::endl;
 								response.setServerConfig(getConnectionServerConfig(connection.parent.getHost(), connection.parent.getPort(), request.getHeader("Host")));
 								response.setEndChunkSent(false);
 								response.setErrorPage(e, e.getServer());

@@ -100,18 +100,18 @@ static const std::string getIndexFile(const Config * location, const std::string
 }
 
 void Request::updateLocation() {
-    struct stat fileStat;
+    // struct stat fileStat;
 
-	_filename = getRequestedPath(getPathFromUri(_request_target), _location);
-    _file_path = _location->root + _filename;
-    stat (_file_path.c_str(), &fileStat);
-    if (access( _file_path.c_str(), F_OK) || S_ISDIR(fileStat.st_mode)) {
+	// _filename = getRequestedPath(getPathFromUri(_request_target), _location);
+    // _file_path = _location->root + _filename;
+    // stat (_file_path.c_str(), &fileStat);
+    // if (access( _file_path.c_str(), F_OK) || S_ISDIR(fileStat.st_mode)) {
         _location = getLocationFromRequest(*this, _server);
 
         _filename = getRequestedPath(getPathFromUri(_request_target), _location);
         _file_path = _location->root + _filename;
         _location = getLocationFromRequest(*this, _server);
-    }
+    // }
 }
 
 void Request::checkRequestTarget() {
@@ -133,7 +133,6 @@ void Request::checkRequestTarget() {
         }
 	}
 
-    debug << _file_path << std::endl;
     if (_method != DELETE) {
 	    Utils::fileStat(_file_path, fileStat, _location);
     }
@@ -198,7 +197,7 @@ bool Request::parse() {
         } else if ((_parser.current_stat == _parser.METHOD && (c == ' ' || end))) {
             _method = getMethodFromName(_parser.str);
             if (_method == UNKNOWN) {
-                throw StatusCodeException(HttpStatus::NotImplemented, _server);
+                throw StatusCodeException(HttpStatus::MethodNotAllowed, _server);
             }
             _parser.current_stat = _parser.REQUEST_TARGET;
         } else if ((_parser.current_stat == _parser.REQUEST_TARGET && (c == ' ' || end))) {
@@ -215,10 +214,6 @@ bool Request::parse() {
             _parser.current_stat = _parser.HEADER_KEY;
         } else if ((_parser.current_stat == _parser.HEADER_KEY && _parser.str.empty() && ((_parser.cr && c == '\n') || end))) {
             _parser.current_stat = _parser.BODY;
-            debug << _request_target << std::endl;
-            if (_request_target == "/assets/css/bootstrap.css.map") {
-                debug << _request_target << std::endl;
-            }
             if (_headers.find("Host") == _headers.end()) {
                 throw StatusCodeException(HttpStatus::BadRequest, _server);
             }

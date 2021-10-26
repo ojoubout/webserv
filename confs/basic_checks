@@ -7,16 +7,19 @@ server {
     location / {
         listing on;
     }
-    location /get {
-        index index.html;
-        http_method GET;
-    }
-    location /post {
-        index index.html;
+
+    location /upload/ {
+        root tests/basic_checks/upload;
+        upload_pass on;
         http_method POST;
     }
 
-    location /delete {
+    location /get/ {
+        root tests/basic_checks/upload/;
+
+    }
+
+    location /delete/ {
         http_method DELETE;
         root tests/basic_checks/delete/;
     }

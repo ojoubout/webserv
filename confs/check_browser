@@ -2,13 +2,10 @@ server {
     listen localhost 8080;
 
     http_method GET POST;
-    root /tmp/;
+    root tests/check_browser/;
 
-    index index.html;
     location / {
         listing on;
     }
-    location /upload/ {
-        upload_pass on;
-    }
+
 }

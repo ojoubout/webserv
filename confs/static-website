@@ -3,12 +3,12 @@ server {
 
     http_method GET;
     location / {
-        root /Users/ojoubout/Downloads/revetive/html/;
+        root tests/static_websites/revetive/html/;
         index index.html;
     }
 
     location /assets/ {
-        root /Users/ojoubout/Downloads/revetive/assets/;
+        root tests/static_websites/revetive/assets/;
     }
 }
 
@@ -16,7 +16,7 @@ server {
     listen localhost 8081;
 
     http_method GET;
-    root /Users/ojoubout/Downloads/evolve/;
+    root tests/static_websites/evolve/;
     index index.html;
 
     location / {
@@ -28,7 +28,7 @@ server {
     listen localhost 8082;
 
     http_method GET;
-    root /Users/ojoubout/Downloads/xtra/;
+    root tests/static_websites/xtra/;
     index index.html;
 
     location / {

@@ -298,7 +298,6 @@ void	Response::readFile() {
 			_is_cgi = false;
 			closeFd();
 		} else if (size == -1) {
-			debug << "1" << std::endl;
 			return;
 		}
 	}
@@ -362,7 +361,7 @@ void Response::setErrorPage(const StatusCodeException & e, const Config * locati
 	if (error_page.find(_status) != error_page.end()) {
 		errPage = new std::fstream();
 		std::string errPath = error_page.find(_status)->second;
-		if (errPath[0] == '/') {
+		if (errPath[0] == '/' || (errPath[0] == '.' && errPath[1] == '/')) {
 			errPage->open(errPath.c_str());
 		} else {
 			std::string filename = location->root;
@@ -477,10 +476,7 @@ void Response::set_cgi_body(const Request & request)
 	sent_body += n;
 	if (n > 0) {
 		ret = write(fd_body[1], buff, n);
-		debug << ret << " " << errno << std::endl;
 		if (ret == 0 || ret == -1) {
-			debug << "2" << std::endl;
-
 			throw StatusCodeException(HttpStatus::InternalServerError, _location);
 		}
 	}
@@ -494,7 +490,6 @@ void Response::closeFdBody() {
 }
 void Response::closeFd() {
 	if (fd[0] != -1) {
-		debug << "Close FD: " << fd[0] << std::endl;
 		close(fd[0]);
 		fd[0] = -1;
 	}
@@ -524,7 +519,6 @@ void Response::readCgiHeader()
 	// std::cerr << "ret: " << ret << "\n";
 
 	if (ret == pid && WEXITSTATUS(status) == 42) {
-		debug << "3" << std::endl;
 		throw StatusCodeException(HttpStatus::InternalServerError, _location);
 	}
 	// exit(EXIT_SUCCESS);
@@ -578,7 +572,6 @@ void Response::readCgiHeader()
 			std::multimap<std::string, std::string>::const_iterator it = _headers.find("Status");
 			if (it != _headers.end()) {
 				_status = (HttpStatus::StatusCode)atoi(it->second.c_str());
-	            debug << "Hello " << _status << " " << getHeader("Location") << std::endl;
 			}
 		}
 	}
